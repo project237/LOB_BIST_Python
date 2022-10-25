@@ -5,24 +5,33 @@ class order:
     """
     def __init__(self, network_time, bist_time, msg_type, asset_name, side, price, que_loc, qty, id):
 
-        # from args
-        self.network_time = network_time
-        self.bist_time = bist_time
-        self.msg_type = msg_type
-        self.asset_name = asset_name
-        self.side = side
-        self.qty = qty
-        self.price = price
-        self.que_loc = que_loc
-        self.qty = qty
-        self.id = id
+        # =================== INPUT CHECKS ===================  
 
-        # others
+        # check if msg_type is valid
+        assert msg_type in ['A', 'E', 'D']
+
+        # make sure that network_time, bist_time, id are positive integers
+        assert network_time != "0"
+        assert bist_time    != "0"
+        assert id           != "0"
+        
+        # =============== ATTRIBUTES FROM ARGS ============== 
+        self.network_time = int(network_time)
+        self.bist_time    = int(bist_time)
+        self.msg_type     = msg_type
+        self.asset_name   = asset_name
+        self.side         = side
+        self.qty          = int(qty)
+        self.price        = float(price)
+        self.que_loc      = int(que_loc)
+        self.id           = id
+
+        # =============== INFERRED ATTRIBUTES ===============  
 
         # will be set to False if order is cancelled
         self.active = None
-        if self.msg_type == ('A' or 'E'):
-            active = True
+        if self.msg_type in ['A', 'E']:
+            self.active = True
 
     def __repr__(self):
         return str(self.__dict__)
