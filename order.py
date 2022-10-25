@@ -7,13 +7,16 @@ class order:
 
         # =================== INPUT CHECKS ===================  
 
-        # check if msg_type is valid
-        assert msg_type in ['A', 'E', 'D']
+        try:
+            # check if msg_type is valid
+            assert msg_type in ['A', 'E', 'D']
 
-        # make sure that network_time, bist_time, id are positive integers
-        assert network_time != "0"
-        assert bist_time    != "0"
-        assert id           != "0"
+            # make sure that network_time, bist_time, id are positive integers
+            assert network_time != "0"
+            assert bist_time    != "0"
+            assert id           != "0"
+        except AssertionError:
+            raise ValueError
         
         # =============== ATTRIBUTES FROM ARGS ============== 
         self.network_time = int(network_time)

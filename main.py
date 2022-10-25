@@ -24,7 +24,7 @@ def main():
             try:
                 new_order = order(*line)
                 order_engine.process_order(new_order)
-            except Exception:
+            except ValueError:
                 print(f"Error: Invalid order at line {(i+1)}")
         
     print()
