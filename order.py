@@ -7,6 +7,7 @@ class order:
 
         # =================== INPUT CHECKS ===================  
 
+        # We raise ValueError instead of generic AssertionError to be able to handle with no ambiguity
         try:
             # check if msg_type is valid
             assert msg_type in ['A', 'E', 'D']
