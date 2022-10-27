@@ -2,7 +2,7 @@ from bintrees import FastRBTree
 
 class OpenOrders:
     """
-    Both bids and asks have their own OpenOrders object which sorts them in their order of priority to the market price,
+    Both bids and asks have their own OpenOrders object which sorts them in their order of priority to be matched,
     first by the price, then by the que_loc of the order. 
     The main data structure used for sorting the orders is a Reb Black Tree. We also use two dicts,
     One that stores order_list objects by price, and one that stores orders by order_id.
