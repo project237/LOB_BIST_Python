@@ -1,5 +1,36 @@
-        
-class order:
+
+class orderA():
+    def __init__(self, network_time, bist_time, msg_type, asset_name, side, price, que_loc, qty, id):
+        self.network_time = network_time
+        self.bist_time    = bist_time
+        self.msg_type     = msg_type
+        self.asset_name   = asset_name
+        self.side         = side
+        self.price        = price
+        self.que_loc      = que_loc
+        self.qty          = qty
+        self.id           = id
+
+class orderE:
+    def __init__(self, dict):
+        self.msg_type     = dict["msg_type"]
+        self.id           = dict["id"]
+        self.network_time = dict["network_time"]
+        self.bist_time    = dict["bist_time"]
+        self.qty          = dict["qty"]
+
+class orderD:
+    def __init__(self, dict):
+        self.msg_type     = dict["msg_type"]
+        self.id           = dict["id"]
+        self.network_time = dict["network_time"]
+        self.bist_time    = dict["bist_time"]
+
+# todo - decide if you need this.
+class ActiveOrder():
+    pass
+
+class Order:
     """
     Creates an order objet as a result of parsing single row of order csv file. 
     """
@@ -37,6 +68,8 @@ class order:
         if self.msg_type in ['A', 'E']:
             self.active = True
 
+    
+
     def __repr__(self):
         return str(self.__dict__)
 
@@ -65,5 +98,3 @@ class order:
     # def __ge__(self, other):
     #     return self.timestamp >= other.timestamp
 
-    def __hash__(self):
-        return hash(self.id)
