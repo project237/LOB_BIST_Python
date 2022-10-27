@@ -16,20 +16,20 @@ class order:
             assert network_time != "0"
             assert bist_time    != "0"
             assert id           != "0"
+
+            # =============== ATTRIBUTES FROM ARGS ============== 
+            self.network_time = int(network_time)
+            self.bist_time    = int(bist_time)
+            self.msg_type     = msg_type
+            self.asset_name   = asset_name
+            self.side         = side
+            self.qty          = int(qty)
+            self.price        = float(price)
+            self.que_loc      = int(que_loc)
+            self.id           = id
         except AssertionError:
             raise ValueError
         
-        # =============== ATTRIBUTES FROM ARGS ============== 
-        self.network_time = int(network_time)
-        self.bist_time    = int(bist_time)
-        self.msg_type     = msg_type
-        self.asset_name   = asset_name
-        self.side         = side
-        self.qty          = int(qty)
-        self.price        = float(price)
-        self.que_loc      = int(que_loc)
-        self.id           = id
-
         # =============== INFERRED ATTRIBUTES ===============  
 
         # will be set to False if order is cancelled
