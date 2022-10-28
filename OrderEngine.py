@@ -4,11 +4,12 @@ from pprint import pprint
 
 class OrderEngine:
     def __init__(self):
-        self.bids_test = []
-        self.asks_test = []
-        # self.OpenBids = OpenOrders()
-        # self.OpenAsks = OpenOrders()
-        self.order_dict = {} # A dict of orderA objects that are not yet fully matched
+        self.bids_test_dict     = {}  # list of ActiveOrder objects  
+        self.asks_test_dict     = {}  # list of ActiveOrder objects
+        self.closed_orders      = []
+        # self.OpenBids         = OpenOrders()
+        # self.OpenAsks         = OpenOrders()
+        self.order_dict         = {} # A dict of orderA objects that are not yet fully matched
         # key = order id, value = order object
 
     def get_order_with_id(self, id):
@@ -18,15 +19,17 @@ class OrderEngine:
         """
         Called by process_execute_order() when an orderE arrives
         """
+        id = order.id
         if side == "B":
             # self.OpenBids.insert_order(order)
-            self.bids_test.append(order)
+            self.bids_test_dict[id] = order
         elif side == "S":
             # self.OpenAsks.insert_order(order)
-            self.asks_test.append(order)
+            self.asks_test_dict[id] = order
         else:
             raise ValueError("side must be 'B' or 'S'")
         # TODO - LEFT HERE
+        # TODO - call remove_order_from_book() if order is matched
 
     def process_execute_order(self, orderE):
         """
@@ -36,17 +39,54 @@ class OrderEngine:
         orderA = self.get_order_with_id(orderE.id)
         side = orderA.side
 
-        if orderA.qty == qty:
-            # set qty_not_executed to 0
-            orderA.qty_not_executed = 0
-        elif orderA.qty > qty:
-            # set qty_not_executed to qty_not_executed - qty
-            orderA.qty_not_executed -= qty
-        else:
-            raise ValueError("orderE.qty is greater than orderA.qty")
-        
-        active_order = ActiveOrder(qty, orderA)
+        # if orderA.qty == qty:
+        #     # set qty_not_executed to 0
+        #     orderA.qty_not_executed = 0
+        # elif orderA.qty > qty:
+        #     # set qty_not_executed to qty_not_executed - qty
+        #     orderA.qty_not_executed -= qty
+        # else:
+        #     raise ValueError("orderE.qty is greater than orderA.qty")
+        # active_order = ActiveOrder(qty, orderA)
+
+        active_order = orderA.process_execute_order(orderE)
         self.send_order_to_book(active_order, side)
+
+    def remove_order_from_book(self, orderA):
+        """
+        Called from:
+        1- process_delete_order() when an orderD arrives
+        2- process_execute_order() when an orderE that turns consumed flag of orderA to True
+        """
+        side = orderA.side
+        id   = orderA.id
+
+        # first remove from order_dict
+        del self.order_dict[id]
+
+        # then we remove from OpenOrders tree depending on side
+        # (for now just remove from the list)
+        if side == "B":
+            # will remove from OpenOrders tree if it is on the tree
+            try:
+                del self.bids_test_dict[id]
+            except KeyError:
+                pass
+        elif side == "S":
+            # will remove from OpenOrders tree if it is on the tree
+            try:
+                del self.bids_test_dict[id]
+            except KeyError:
+                pass
+        
+        # add to the list of closed orders
+        self.closed_orders.append(orderA)
+
+    def process_delete_order(self, orderD):
+        id = orderD.id
+        orderA = self.get_order_with_id(id)
+        orderA.add_to_order_stack(orderD)
+        self.remove_order_from_book(orderA)
 
     def process_order(self, line):
         """
@@ -89,16 +129,20 @@ class OrderEngine:
             self.process_execute_order(order)
         elif msg_type == "D":
             order = orderD(quote_dict)
+            self.process_delete_order(order)
 
         # TODO - LEFT HERE
 
     def display(self):
-        print("\nPARSED ORDERS:")
+        # length of order_dict
+        print(f"\nACTIVE ORDERS: {len(self.order_dict)} items")
         pprint(self.order_dict)
-        print("\nASKS:")
-        pprint(self.asks_test)
-        print("\nBIDS:")
-        pprint(self.bids_test)
+        # print("\nASKS:")
+        # pprint(self.asks_test_dict)
+        # print("\nBIDS:")
+        # pprint(self.bids_test_dict)
+        print(f"\nCLOSED ORDERS: {len(self.closed_orders)} items")
+        pprint(self.closed_orders)
 
     def __repr__(self):
         return str(self.__dict__)
