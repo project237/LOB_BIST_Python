@@ -8,6 +8,7 @@ class ActiveOrder:
     Execute order to an Active order.
     """
     def __init__(self, qty, orderA):
+        self.id       = orderA.id
         self.qty      = qty
         self.orderA   = orderA
         self.side     = orderA.side
@@ -15,7 +16,7 @@ class ActiveOrder:
         self.que_loc  = orderA.que_loc
 
     def __repr__(self):
-        return pformat(vars(self), indent=4, width=1)
+        return pformat(vars(self), indent=4, width=1, compact=True)
 
 class orderA:
     """
@@ -37,9 +38,40 @@ class orderA:
         # Other attributes
         self.qty_not_executed = qty
         self.consumed         = False
+        self.order_stack      = []
+
+    def process_execute_order(self, orderE: "orderE"):
+        """
+        Called by process_order() when msg_type == "E"
+        """
+        qty = orderE.qty
+        if self.qty == qty:
+            # set qty_not_executed to 0
+            self.qty_not_executed = 0
+            self.consumed = True
+        elif self.qty > qty:
+            # set qty_not_executed to qty_not_executed - qty
+            self.qty_not_executed -= qty
+        else:
+            raise ValueError("orderE.qty is greater than orderA.qty")
+
+        self.add_to_order_stack(orderE)
+        active_order = ActiveOrder(qty, self)
+
+        return active_order
+
+    def add_to_order_stack(self, order):
+        """
+        Adds the secondary (D or E) order to the order_stack of the orderA 
+        whenever orderA is either deleted or fully matched.
+        """
+        self.order_stack.append(order)
+        if order.msg_type == "D":
+            self.consumed = True
 
     def __repr__(self):
-        return pformat(vars(self), indent=4, width=1)
+        # return pformat(vars(self), indent=4, width=1, compact=True)
+        return pformat(vars(self), width=1, compact=True)
 
 class orderE:
     """
@@ -54,7 +86,7 @@ class orderE:
         self.qty          = dict["qty"]
 
     def __repr__(self):
-        return pformat(vars(self), indent=4, width=1)
+        return pformat(vars(self), indent=4, width=1, compact=True)
 
 
 class orderD:
@@ -69,7 +101,7 @@ class orderD:
         self.bist_time    = dict["bist_time"]
 
     def __repr__(self):
-        return pformat(vars(self), indent=4, width=1)
+        return pformat(vars(self), indent=4, width=1, compact=True)
 
 
 class Order:
