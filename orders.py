@@ -1,17 +1,51 @@
 
-class orderA():
+from pprint import pformat
+
+class ActiveOrder:
+    """
+    Internal order type. 
+    The class of orders that will sit on the book (if not processed immediately) as a result of calling an
+    Execute order to an Active order.
+    """
+    def __init__(self, qty, orderA):
+        self.qty      = qty
+        self.orderA   = orderA
+        self.side     = orderA.side
+        self.price    = orderA.price
+        self.que_loc  = orderA.que_loc
+
+    def __repr__(self):
+        return pformat(vars(self), indent=4, width=1)
+
+class orderA:
+    """
+    User order type.
+    The primary order type that has the entire quote fields. 
+    """
     def __init__(self, network_time, bist_time, msg_type, asset_name, side, price, que_loc, qty, id):
-        self.network_time = network_time
-        self.bist_time    = bist_time
-        self.msg_type     = msg_type
-        self.asset_name   = asset_name
-        self.side         = side
-        self.price        = price
-        self.que_loc      = que_loc
-        self.qty          = qty
-        self.id           = id
+        # Attributes from qoute
+        self.network_time     = network_time
+        self.bist_time        = bist_time
+        self.msg_type         = msg_type
+        self.asset_name       = asset_name
+        self.side             = side
+        self.price            = price
+        self.que_loc          = que_loc
+        self.qty              = qty
+        self.id               = id
+
+        # Other attributes
+        self.qty_not_executed = qty
+        self.consumed         = False
+
+    def __repr__(self):
+        return pformat(vars(self), indent=4, width=1)
 
 class orderE:
+    """
+    User order type.
+    Secondary order type that only has the fields necessary to execute an order.
+    """
     def __init__(self, dict):
         self.msg_type     = dict["msg_type"]
         self.id           = dict["id"]
@@ -19,16 +53,24 @@ class orderE:
         self.bist_time    = dict["bist_time"]
         self.qty          = dict["qty"]
 
+    def __repr__(self):
+        return pformat(vars(self), indent=4, width=1)
+
+
 class orderD:
+    """
+    User order type.
+    Secondary order type that only has the fields necessary to delete an order.
+    """
     def __init__(self, dict):
         self.msg_type     = dict["msg_type"]
         self.id           = dict["id"]
         self.network_time = dict["network_time"]
         self.bist_time    = dict["bist_time"]
 
-# todo - decide if you need this.
-class ActiveOrder():
-    pass
+    def __repr__(self):
+        return pformat(vars(self), indent=4, width=1)
+
 
 class Order:
     """
