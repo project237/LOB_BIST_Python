@@ -1,12 +1,52 @@
-from order import orderA, orderE, orderD
+from orders import ActiveOrder, orderA, orderE, orderD
 # from OpenOrders import OpenOrders
 from pprint import pprint
 
 class OrderEngine:
     def __init__(self):
+        self.bids_test = []
+        self.asks_test = []
         # self.OpenBids = OpenOrders()
         # self.OpenAsks = OpenOrders()
-        self.order_dict = {}
+        self.order_dict = {} # A dict of orderA objects that are not yet fully matched
+        # key = order id, value = order object
+
+    def get_order_with_id(self, id):
+        return self.order_dict[id]
+
+    def send_order_to_book(self, order, side):
+        """
+        Called by process_execute_order() when an orderE arrives
+        """
+        if side == "B":
+            # self.OpenBids.insert_order(order)
+            self.bids_test.append(order)
+        elif side == "S":
+            # self.OpenAsks.insert_order(order)
+            self.asks_test.append(order)
+        else:
+            raise ValueError("side must be 'B' or 'S'")
+        # TODO - LEFT HERE
+
+    def process_execute_order(self, orderE):
+        """
+        Called by process_order() when msg_type == "E"
+        """
+        qty = orderE.qty
+        orderA = self.get_order_with_id(orderE.id)
+        side = orderA.side
+
+        if orderA.qty == qty:
+            # set qty_not_executed to 0
+            orderA.qty_not_executed = 0
+        elif orderA.qty > qty:
+            # set qty_not_executed to qty_not_executed - qty
+            orderA.qty_not_executed -= qty
+        else:
+            raise ValueError("orderE.qty is greater than orderA.qty")
+        
+        active_order = ActiveOrder(qty, orderA)
+        self.send_order_to_book(active_order, side)
 
     def process_order(self, line):
         """
@@ -43,17 +83,22 @@ class OrderEngine:
         order = None
         if msg_type == "A":
             order = orderA(**quote_dict)
-            self.order_dict[order.id] = order
+            self.order_dict[order.id] = order  # adding the order to the order_dict
         elif msg_type == "E":
             order = orderE(quote_dict)
+            self.process_execute_order(order)
         elif msg_type == "D":
             order = orderD(quote_dict)
 
-        pprint(order.__dict__)
-
         # TODO - LEFT HERE
 
-        
+    def display(self):
+        print("\nPARSED ORDERS:")
+        pprint(self.order_dict)
+        print("\nASKS:")
+        pprint(self.asks_test)
+        print("\nBIDS:")
+        pprint(self.bids_test)
 
     def __repr__(self):
         return str(self.__dict__)
