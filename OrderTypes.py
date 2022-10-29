@@ -1,6 +1,8 @@
 
 from pprint import pformat
 
+from OrderList import OrderList
+
 class orderA:
     """
     The primary order type that has the entire quote fields. 
@@ -38,7 +40,7 @@ class orderA:
             raise ValueError("orderE.qty is greater than orderA.qty")
 
         self.add_to_order_stack(orderE)
-        orderE.populate_attributes(self)
+        orderE.populate_attributes_from_orderA(self)
         return orderE
 
 
@@ -68,12 +70,14 @@ class orderE:
         self.msg_type     = dict["msg_type"]
         self.network_time = dict["network_time"]
         self.bist_time    = dict["bist_time"]
-        self.orderA       = None
         self.side         = None
         self.price        = None
         self.que_loc      = None
+        self.order_list   = None
+        self.next_order   = None
+        self.prev_order   = None
 
-    def populate_attributes(self, orderA: orderA):
+    def populate_attributes_from_orderA(self, orderA: orderA):
         """
         Populates the attributes of orderE with the attributes of orderA.
         """
@@ -81,8 +85,27 @@ class orderE:
         self.price        = orderA.price
         self.que_loc      = orderA.que_loc
 
+    def add_order_list(self, order_list: OrderList):
+        """
+        Will be called by insert_order() of OrderTree class when an order is inserted into the tree
+        """
+        self.order_list = order_list
+
+    def next_order(self):
+        """
+        Will be called by OrderList methods when an order is inserted or removed to/from the list
+        """
+        return self.next_order
+
+    def prev_order(self):
+        """
+        Will be called by OrderList methods when an order is inserted or removed to/from the list
+        """
+        return self.prev_order
+
     def __repr__(self):
-        return pformat(vars(self), indent=4, width=1, compact=True)
+        return "%s\t@\t%.4f" % (self.qty, self.price / float(100))
+        # return pformat(vars(self), indent=4, width=1, compact=True)
 
 
 class orderD:
@@ -99,6 +122,7 @@ class orderD:
         return pformat(vars(self), indent=4, width=1, compact=True)
 
 
+# todo - delete this
 class Order:
     """
     Creates an order objet as a result of parsing single row of order csv file. 
