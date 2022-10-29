@@ -1,90 +1,81 @@
-
 # from collections import deque
 
 # TODO - try reimplementing this using a deque
 
+# from six.moves import cStringIO as StringIO
+from io import StringIO
+
 class OrderList(object):
     # class OrderList:
     # TODO - retry with the commented out code above
+    # TODO - raplace all Order references with orderE references
+    # TODO - Implement order priority comparison (involves que_loc, bist_time, network_time)
+
     """ 
     List of order that await execution at the same price
     The price is the key of the dictionary inside the price_dict attribute of the OpenOrders object
 
-    Credit for the class - https://github.com/DrAshBooth/PyLOB/blob/master/src/PyLOB/orderlist.py
+    Credit for the class - https://github.com/abcabhishek/PyLimitOrderBook/blob/120bb03f9989bb1e471d59e0b4ede6203c05ec96/pylimitbook/orderList.py
     """ 
-
     def __init__(self):
-        self.headOrder = None
-        self.tailOrder = None
-        self.length = 0
-        self.volume = 0    # Total share volume
-        self.last = None
-        
+        self.head_order = None
+        self.tail_order = None
+        self.length     = 0
+        self.volume     = 0  # Total order volume
+        self.last       = None
+
     def __len__(self):
         return self.length
-    
+
     def __iter__(self):
-        self.last = self.headOrder
+        self.last = self.head_order
         return self
-    
-    def __next__(self):
+
+    def next(self):
         if self.last == None:
             raise StopIteration
         else:
-            returnVal = self.last
-            self.last = self.last.nextOrder
-            return returnVal
-        
-    def getHeadOrder(self):
-        return self.headOrder
-    
-    def appendOrder(self, order):
+            return_val = self.last
+            self.last = self.last.next_order
+            return return_val
+
+    __next__ = next # Python 3.x compatibility
+
+    def append_order(self, order: "orderE"):
+        """
+        """
         if len(self) == 0:
-            order.nextOrder = None
-            order.prevOrder = None
-            self.headOrder = order
-            self.tailOrder = order
+            order.next_order           = None
+            order.prev_order           = None
+            self.head_order            = order
+            self.tail_order            = order
         else:
-            order.prevOrder = self.tailOrder
-            order.nextOrder = None
-            self.tailOrder.nextOrder = order
-            self.tailOrder = order
+            order.prev_order           = self.tail_order
+            order.next_order           = None
+            self.tail_order.next_order = order
+            self.tail_order            = order
         self.length += 1
         self.volume += order.qty
-        
-    def removeOrder(self, order):
+
+    def remove_order(self, order):
         self.volume -= order.qty
         self.length -= 1
         if len(self) == 0:
             return
         # Remove from list of orders
-        nextOrder = order.nextOrder
-        prevOrder = order.prevOrder
-        if nextOrder != None and prevOrder != None:
-            nextOrder.prevOrder = prevOrder
-            prevOrder.nextOrder = nextOrder
-        elif nextOrder != None:
-            nextOrder.prevOrder = None
-            self.headOrder = nextOrder
-        elif prevOrder != None:
-            prevOrder.nextOrder = None
-            self.tailOrder = prevOrder
-            
-    def moveTail(self, order):
-        if order.prevOrder != None:
-            order.prevOrder.nextOrder = order.nextOrder
-        else:
-            # Update the head order
-            self.headOrder = order.nextOrder
-        order.nextOrder.prevOrder = order.prevOrder
-        # Set the previous tail order's next order to this order
-        self.tailOrder.nextOrder = order
-        order.prevOrder = self.tailOrder
-        self.tailOrder = order
-        order.nextOrder = None
-        
+        next_order = order.next_order
+        prev_order = order.prev_order
+        if next_order != None and prev_order != None:
+            next_order.prev_order = prev_order
+            prev_order.next_order = next_order
+        elif next_order != None:
+            next_order.prev_order = None
+            self.head_order = next_order
+        elif prev_order != None:
+            prev_order.next_order = None
+            self.tail_order = prev_order
+
     def __str__(self):
-        from io import StringIO
         file_str = StringIO()
         for order in self:
             file_str.write("%s\n" % str(order))
