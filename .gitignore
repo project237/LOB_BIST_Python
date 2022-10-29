@@ -1,9 +1,6 @@
 GARAN.E.csv
 exploring.py
-__pycache__/order.cpython-39.pyc
-__pycache__/order_engine.cpython-39.pyc
-__pycache__/OrderEngine.cpython-39.pyc
+__pycache__/
 other/
 try_rbtree.py
 GARAN.E.test.csv
-__pycache__/orders.cpython-39.pyc
