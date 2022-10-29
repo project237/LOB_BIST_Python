@@ -1,26 +1,8 @@
 
 from pprint import pformat
 
-class ActiveOrder:
-    """
-    Internal order type. 
-    The class of orders that will sit on the book (if not processed immediately) as a result of calling an
-    Execute order to an Active order.
-    """
-    def __init__(self, qty, orderA):
-        self.id       = orderA.id
-        self.qty      = qty
-        self.orderA   = orderA
-        self.side     = orderA.side
-        self.price    = orderA.price
-        self.que_loc  = orderA.que_loc
-
-    def __repr__(self):
-        return pformat(vars(self), indent=4, width=1, compact=True)
-
 class orderA:
     """
-    User order type.
     The primary order type that has the entire quote fields. 
     """
     def __init__(self, network_time, bist_time, msg_type, asset_name, side, price, que_loc, qty, id):
@@ -37,7 +19,7 @@ class orderA:
 
         # Other attributes
         self.qty_not_executed = qty
-        self.consumed         = False
+        self.consumed         = False   # Turns True if order is fully sent to the book, and NOT necessarily executed
         self.order_stack      = []
 
     def process_execute_order(self, orderE: "orderE"):
@@ -56,9 +38,9 @@ class orderA:
             raise ValueError("orderE.qty is greater than orderA.qty")
 
         self.add_to_order_stack(orderE)
-        active_order = ActiveOrder(qty, self)
+        orderE.populate_attributes(self)
+        return orderE
 
-        return active_order
 
     def add_to_order_stack(self, order):
         """
@@ -75,15 +57,29 @@ class orderA:
 
 class orderE:
     """
-    User order type.
     Secondary order type that only has the fields necessary to execute an order.
+    
+    The class of orders that will sit on the book (if not processed immediately) as a result of calling 
+    process_execute_order() on an orderA object.
     """
     def __init__(self, dict):
-        self.msg_type     = dict["msg_type"]
         self.id           = dict["id"]
+        self.qty          = dict["qty"]
+        self.msg_type     = dict["msg_type"]
         self.network_time = dict["network_time"]
         self.bist_time    = dict["bist_time"]
-        self.qty          = dict["qty"]
+        self.orderA       = None
+        self.side         = None
+        self.price        = None
+        self.que_loc      = None
+
+    def populate_attributes(self, orderA: orderA):
+        """
+        Populates the attributes of orderE with the attributes of orderA.
+        """
+        self.side         = orderA.side
+        self.price        = orderA.price
+        self.que_loc      = orderA.que_loc
 
     def __repr__(self):
         return pformat(vars(self), indent=4, width=1, compact=True)
@@ -91,7 +87,6 @@ class orderE:
 
 class orderD:
     """
-    User order type.
     Secondary order type that only has the fields necessary to delete an order.
     """
     def __init__(self, dict):

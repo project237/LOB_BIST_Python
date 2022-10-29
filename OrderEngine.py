@@ -1,4 +1,4 @@
-from OrderTypes import ActiveOrder, orderA, orderE, orderD
+from OrderTypes import orderA, orderE, orderD
 # from OpenOrders import OpenOrders
 from pprint import pprint
 
@@ -15,7 +15,7 @@ class OrderEngine:
     def get_order_with_id(self, id):
         return self.order_dict[id]
 
-    def send_order_to_book(self, order, side):
+    def send_order_to_book(self, order: orderE, side):
         """
         Called by process_execute_order() when an orderE arrives
         """
