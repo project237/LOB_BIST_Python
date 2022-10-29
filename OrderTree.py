@@ -2,7 +2,7 @@
 
 from bintrees import FastRBTree
 
-from OrderTypes import ActiveOrder
+from OrderTypes import orderE
 from OrderList import OrderList
 
 class OrderTree(object):
@@ -63,33 +63,24 @@ class OrderTree(object):
     def order_exists(self, id_num):
         return id_num in self.order_dict
 
-    def insert_tick(self, tick):
-        if tick.price not in self.price_dict:
-            self.create_price(tick.price)
-        order = Order(tick, self.price_dict[tick.price])
-        # TODO - Initialize to ActiveOrder object correctly
+    def insert_order(self, order: orderE):
+        """
+        Will be called by send_order_to_book() method of OrderEngine class, when a new orderE is received
+        """
+        if order.price not in self.price_dict:
+            self.create_price(order.price)
+
+        # order = Order(tick, self.price_dict[tick.price])
+        order.add_order_list(self.price_dict[order.price])
 
         self.price_dict[order.price].append_order(order)
         self.order_dict[order.id_num] = order
         self.volume += order.qty
 
-    def update_order(self, tick):
-        order = self.order_dict[tick.id_num]
-        original_volume = order.qty
-        if tick.price != order.price:
-            # Price changed
-            order_list = self.price_dict[order.price]
-            order_list.remove_order(order)
-            if len(order_list) == 0:
-                self.remove_price(order.price)
-            self.insert_tick(tick)
-            self.volume -= original_volume
-        else:
-            # Quantity changed
-            order.update_qty(tick.qty, tick.price)
-            self.volume += order.qty - original_volume
-
     def remove_order_by_id(self, id_num):
+        """
+        Call when orderD needs to be processed
+        """
         order = self.order_dict[id_num]
         self.volume -= order.qty
         order.order_list.remove_order(order)
