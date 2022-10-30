@@ -1,8 +1,6 @@
 #!/usr/bin/python
 
 from bintrees import FastRBTree
-
-from OrderTypes import orderE
 from OrderList import OrderList
 
 class OrderTree(object):
@@ -24,14 +22,17 @@ class OrderTree(object):
         self.min_price = None
         self.max_price = None
 
+    def __contains__(self, key):
+        return key in self.price_dict
+
     def __len__(self):
         return len(self.order_dict)
 
     def get_price(self, price):
         return self.price_dict[price]
 
-    def get_order(self, id_num):
-        return self.order_dict[id_num]
+    def get_order(self, id):
+        return self.order_dict[id]
 
     def create_price(self, price):
         new_list = OrderList()
@@ -60,11 +61,12 @@ class OrderTree(object):
     def price_exists(self, price):
         return price in self.price_dict
 
-    def order_exists(self, id_num):
-        return id_num in self.order_dict
+    def order_exists(self, id):
+        return id in self.order_dict
 
-    def insert_order(self, order: orderE):
+    def insert_order(self, order):
         """
+        order: orderE object
         Will be called by send_order_to_book() method of OrderEngine class, when a new orderE is received
         """
         if order.price not in self.price_dict:
@@ -74,22 +76,23 @@ class OrderTree(object):
         order.add_order_list(self.price_dict[order.price])
 
         self.price_dict[order.price].append_order(order)
-        self.order_dict[order.id_num] = order
+        self.order_dict[order.id] = order
         self.volume += order.qty
 
-    def remove_order_by_id(self, id_num):
+    def remove_order_by_id(self, id):
         """
         Call when orderD needs to be processed
         """
-        order = self.order_dict[id_num]
+        order = self.order_dict[id]
         self.volume -= order.qty
         order.order_list.remove_order(order)
         if len(order.order_list) == 0:
             self.remove_price(order.price)
-        del self.order_dict[id_num]
+        del self.order_dict[id]
 
-    def max(self):
-        return self.max_price
+    def max_list(self):
+        return self.price_dict[self.max_price]
 
-    def min(self):
-        return self.min_price
+    def min_list(self):
+        return self.price_dict[self.min_price]
+        
