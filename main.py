@@ -1,7 +1,8 @@
 
 # =================================== PARAMETERS ==================================
-INPUT_FILE_NAME = "GARAN.E.test2.csv"
-DEBUG_MODE      = True
+INPUT_FILE_NAME  = "GARAN.E.test2.csv"
+OUTPUT_FILE_NAME = "market_data.csv"
+DEBUG_MODE       = True
 
 # ==================================== IMPORTS ====================================
 from OrderEngine import OrderEngine
@@ -13,7 +14,7 @@ def process_order(line):
     pass
 
 def main():
-    ord_engine = OrderEngine(debug_mode=DEBUG_MODE)
+    ord_engine = OrderEngine(debug_mode=DEBUG_MODE, price_file=OUTPUT_FILE_NAME)
 
     with open(INPUT_FILE_NAME, "r") as f:
         for i, l in enumerate(f):
