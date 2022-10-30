@@ -81,7 +81,7 @@ class OrderTree(object):
 
     def remove_order_by_id(self, id):
         """
-        Call when orderD needs to be processed
+        Called by OrderEngine.match_orders() whenever an incoming orderE is matched on orderE on the OrderTree
         """
         order = self.order_dict[id]
         self.volume -= order.qty
