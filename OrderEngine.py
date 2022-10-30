@@ -12,8 +12,9 @@ class OrderEngine:
     ASSUMPTION:
     1- An order A cannot receive an orderE and orderD at different times
     """
-    def __init__(self, debug_mode = False):
+    def __init__(self, debug_mode=False, price_file=None):
         self.debug_mode          = debug_mode # if True, prints the order book, closed_orderAs and active_orderAs after processing each order
+        self.price_file          = price_file # file name where the market info will be recorded
         self.bids_test_dict      = {}  # list of active orderAs on the side of Bids  
         self.asks_test_dict      = {}  # list of active orderAs on the side of Asks
         self.OpenBids            = OrderTree()
@@ -21,9 +22,30 @@ class OrderEngine:
         self.trades              = [] # A list of trades that have been matched
         self.closed_orderAs      = [] # List of orderA's that have been fully matched or canlceled, which esentially contains other orders
         self.active_orderAs      = {} # A dict of orderA objects that are not yet fully matched, key = order id, value = order object
+        self.time_series         = [] # A list of dicts, each dict contains the order book at a specific time
+
+        # add columns to the price file if a file name is provided
+        if self.price_file is not None:
+            with open(self.price_file, 'w') as f:
+                f.write("bist_time,ask,bid,volume\n")
 
     def get_order_with_id(self, id):
         return self.active_orderAs[id]
+
+    def market_to_file(self, bist_time):
+        """
+        Called by process_execute_order() each time an orderE is matched with the market
+        Open the file in append mode, create if it does not exist
+        """
+        line_list = [
+            bist_time,
+            self.OpenAsks.min_price,
+            self.OpenBids.max_price,
+            self.OpenBids.volume + self.OpenAsks.volume
+        ]
+        line = ",".join([str(x) for x in line_list])
+        with open(self.price_file, 'a') as f:
+            f.write(line + "\n")
 
     def match_orders(self, orderE, side, id, qty_to_match, price, best_price_list):
         """
@@ -40,7 +62,6 @@ class OrderEngine:
             qty_to_match: the orderE qty that is not matched yet
             matched_trades: a list of trades that have been matched
         """
-
         # match the orders as long as there is quantity to trade and the order list is not empty
         while ((qty_to_match > 0) and (len(best_price_list) != 0)):
 
@@ -111,7 +132,6 @@ class OrderEngine:
         side             = orderA.side
         id               = orderE.id
         price            = orderA.price
-        new_matched_trades = []  # List that matched trades are gonna be added to 
 
         # orderE now has fully populated attributes from orderA
         orderA.process_execute_order(orderE)
@@ -132,12 +152,13 @@ class OrderEngine:
         # If it is better than the market price, then it adds the order to the book
         # Make sure that qty is greater than 0, self.OpenAsks is not empty
         if side == "B":
-            # todo - try without second condition
-            while ((qty_not_matched > 0) and (self.OpenAsks) and (price >= self.OpenAsks.min_price )) == True:
+            while ((qty_not_matched > 0) and (self.OpenAsks) and (price >= self.OpenAsks.min_price)) == True:
                 best_price_list = self.OpenAsks.min_list()
 
                 qty_not_matched = self.match_orders(side, orderE, id, qty_not_matched, price, best_price_list)
                 orderE.update_qty_not_matched(qty_not_matched)
+            # When done with matching the order, append the market info to self.time_series 
+            self.market_to_file(orderE.bist_time)
 
             # If there is remaning qty, then add it to the book
             if qty_not_matched > 0:
@@ -147,12 +168,13 @@ class OrderEngine:
                 self.bids_test_dict[id] = orderE
         # In this case the side is "S"
         else:
-            # todo - try without second condition
-            while ((qty_not_matched > 0) and self.OpenBids and (price <= self.OpenBids.max_price) ) == True:
+            while ((qty_not_matched > 0) and self.OpenBids and (price <= self.OpenBids.max_price)) == True:
                 best_price_list = self.OpenBids.max_list()
 
                 qty_not_matched = self.match_orders(side, orderE, id, qty_not_matched, price, best_price_list)
                 orderE.update_qty_not_matched(qty_not_matched)
+            # When done with matching the order, append the market info to self.time_series 
+            self.market_to_file(orderE.bist_time)
 
             # If there is remaning qty, then add it to the book
             if qty_not_matched > 0:
@@ -314,5 +336,3 @@ class OrderEngine:
                     break
         fileStr.write("\n")
         return fileStr.getvalue()
-
-
