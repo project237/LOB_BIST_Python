@@ -8,7 +8,7 @@ from io import StringIO
 class OrderList(object):
     # class OrderList:
     # TODO - retry with the commented out code above
-    # TODO - raplace all Order references with orderE references
+    # TODO - raplace all Order references with orderA references
     # TODO - Implement order priority comparison (involves que_loc, bist_time, network_time)
 
     """ 
@@ -41,8 +41,9 @@ class OrderList(object):
 
     __next__ = next # Python 3.x compatibility
 
-    def append_order(self, order: "orderE"):
+    def append_order(self, order):
         """
+        order: orderE object
         """
         if len(self) == 0:
             order.next_order           = None
@@ -78,5 +79,6 @@ class OrderList(object):
     def __str__(self):
         file_str = StringIO()
         for order in self:
-            file_str.write("%s\n" % str(order))
+            file_str.write(f"{order}\n")
+            # file_str.write("%s\n" % str(order))
         return file_str.getvalue()
