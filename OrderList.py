@@ -31,15 +31,13 @@ class OrderList(object):
         self.last = self.head_order
         return self
 
-    def next(self):
+    def __next__(self):
         if self.last == None:
             raise StopIteration
         else:
             return_val = self.last
             self.last = self.last.next_order
             return return_val
-
-    __next__ = next # Python 3.x compatibility
 
     def append_order(self, order):
         """
@@ -57,6 +55,12 @@ class OrderList(object):
             self.tail_order            = order
         self.length += 1
         self.volume += order.qty
+
+    # def match_order(self, qty_to_match):
+    #     """
+    #     order: orderE object
+    #     qty: int
+    #     """
 
     def remove_order(self, order):
         self.volume -= order.qty
@@ -77,8 +81,14 @@ class OrderList(object):
             self.tail_order = prev_order
 
     def __str__(self):
+        # file_str = StringIO()
+        # for order in self:
+        #     file_str.write(f"{order}\n")
+        #     # file_str.write("%s\n" % str(order))
+        # return file_str.getvalue()
         file_str = StringIO()
-        for order in self:
-            file_str.write(f"{order}\n")
-            # file_str.write("%s\n" % str(order))
+        qty_list = [order.qty_not_matched for order in self]
+        file_str.write("tot: {}, vol: {} | ".format(self.length, sum(qty_list)))
+        for order in qty_list:
+            file_str.write(f"-> {order}")
         return file_str.getvalue()
