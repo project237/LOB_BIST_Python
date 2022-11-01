@@ -1,13 +1,11 @@
 
 from pprint import pformat
-from OrderList import OrderList
 
 class orderA:
     """
     The primary order type that has the entire quote fields. 
     """
     def __init__(self, network_time, bist_time, msg_type, asset_name, side, price, que_loc, qty, id):
-        # Attributes from qoute
         self.network_time     = network_time
         self.bist_time        = bist_time
         self.msg_type         = msg_type
@@ -15,9 +13,8 @@ class orderA:
         self.side             = side
         self.price            = price
         self.que_loc          = que_loc
-        self.qty              = qty
         self.id               = id
-
+        self.qty              = qty
         self.qty_not_executed = qty
         self.canceled         = False   # Turns True if an orderD is received
         self.order_stack      = []      # List of processed seconary orders (E and D) associated with this orderA
@@ -46,10 +43,6 @@ class orderA:
         if order.msg_type == "D":
             self.canceled = True
 
-    # def __repr__(self):
-    #     # return pformat(vars(self), indent=4, width=1, compact=True)
-    #     return pformat(vars(self), width=1, compact=True)
-
     def __str__(self):
         str_dict = {
             "msg_type": self.msg_type,
@@ -72,6 +65,9 @@ class orderE:
     
     The class of orders that will sit on the book (if not processed immediately) as a result of calling 
     process_execute_order() on an orderA object.
+        
+    self.key is the attribute which orderE's will be indexed by in OrderTree.order_dict, 
+    this is the only combination of two columns that is unique for orderE's
     """
     def __init__(self, dict):
         self.id                = dict["id"]
@@ -80,7 +76,7 @@ class orderE:
         self.msg_type          = dict["msg_type"]
         self.network_time      = dict["network_time"]
         self.bist_time         = dict["bist_time"]
-        self.key               = dict["id"] + str(dict["bist_time"]) # the key where orderE will be stored in the OrderTree.order_dict
+        self.key               = dict["id"] + str(dict["bist_time"]) 
         self.side              = None
         self.price             = None
         self.que_loc           = None
@@ -96,38 +92,29 @@ class orderE:
         self.price        = orderA.price
         self.que_loc      = orderA.que_loc
 
-    def full_match(self):
-        """
-        """
-        return self.qty_not_matched == 0
-
     def update_qty_not_matched(self, qty):
         """
         Called by OrderList when an order is fully or partially matched.
         """
         self.qty_not_matched = qty
 
-    def add_order_list(self, order_list: OrderList):
-        """
-        Will be called by insert_order() of OrderTree class when an order is inserted into the tree
-        """
-        self.order_list = order_list
+    # def add_order_list(self, order_list):
+    #     """
+    #     Will be called by insert_order() of OrderTree class when an order is inserted into the tree
+    #     """
+    #     self.order_list = order_list
 
-    def next_order(self):
-        """
-        Will be called by OrderList methods when an order is inserted or removed to/from the list
-        """
-        return self.next_order
+    # def next_order(self):
+    #     """
+    #     Will be called by OrderList methods when an order is inserted or removed to/from the list
+    #     """
+    #     return self.next_order
 
-    def prev_order(self):
-        """
-        Will be called by OrderList methods when an order is inserted or removed to/from the list
-        """
-        return self.prev_order
-
-    # def __repr__(self):
-    #     return "%s\t@\t%.4f" % (self.qty, self.price / float(100))
-    #     # return pformat(vars(self), indent=4, width=1, compact=True)
+    # def prev_order(self):
+    #     """
+    #     Will be called by OrderList methods when an order is inserted or removed to/from the list
+    #     """
+    #     return self.prev_order
 
     def __str__(self):
         str_dict = {
@@ -145,7 +132,7 @@ class orderE:
 
 class orderD:
     """
-    Secondary order type that only has the fields necessary to delete an order.
+    Secondary order type that only has the fields necessary to delete an orderA.
     """
     def __init__(self, dict):
         self.msg_type     = dict["msg_type"]
