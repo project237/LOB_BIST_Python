@@ -25,7 +25,7 @@ class OrderTree(object):
     def __str__(self):
         # print keys and values of price_dict on seperate lines
         out_str = ""
-        for key, value in self.price_dict.items():
+        for key, value in sorted(self.price_dict.items()):
             out_str += f"{key}: {value}\n"
         return out_str
 
@@ -90,7 +90,7 @@ class OrderTree(object):
     def remove_order_by_id(self, key):
         """
         Called by OrderEngine.match_orders() whenever an incoming orderE is matched on orderE on the OrderTree
-        
+
         Returns:
             removed: Bool, True if the price_list has been removed from the tree 
         """
@@ -109,9 +109,3 @@ class OrderTree(object):
         Called by OrderEngine.match_orders() to get the OrderList object of the incoming orderE price
         """
         return self.price_dict[price]
-        
-    # def max_list(self):
-    #     return self.price_dict[self.max_price]
-
-    # def min_list(self):
-    #     return self.price_dict[self.min_price]
