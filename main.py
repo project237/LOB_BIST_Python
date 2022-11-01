@@ -15,6 +15,7 @@ from pprint import pprint
 def main():
     ord_engine = OrderEngine(debug_mode=DEBUG_MODE, price_file=OUTPUT_FILE_NAME)
 
+    # todo: get this code into ord_engine.__str__
     with open(INPUT_FILE_NAME, "r") as f:
         for i, l in enumerate(f):
             if DEBUG_MODE: 
@@ -40,8 +41,6 @@ def main():
                 print("\nPrinting Order Book and exiting...")
                 ord_engine.display_book()
                 raise e
-    
-    if not DEBUG_MODE: ord_engine.display_book()
 
 if __name__ == '__main__':
     main()
