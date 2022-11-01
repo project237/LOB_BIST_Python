@@ -3,7 +3,7 @@
 # INPUT_FILE_NAME  = "GARAN.E.test2.csv"
 INPUT_FILE_NAME  = "GARAN.E.csv"
 OUTPUT_FILE_NAME = "market_data.csv"
-DEBUG_MODE       = 1
+DEBUG_MODE       = 0
 
 # ==================================== IMPORTS ====================================
 from OrderEngine import OrderEngine, InvalidOrder
