@@ -208,22 +208,22 @@ class OrderEngine:
             # before setting the qty_to_match to 0
             elif qty_to_match == head_order.qty_not_matched:
                 qty_matched = qty_to_match
-                head_order.update_qty_not_matched(0)
                 if side == 'B':
                     price_removed = self.OpenAsks.remove_order_by_id(head_order.key)
                 else:
                     price_removed = self.OpenBids.remove_order_by_id(head_order.key)
+                head_order.update_qty_not_matched(0)
                 qty_to_match = 0
 
             # If the qty_to_match is greater than the head_order qty, 
             # the process is just like the one above, except, at the end qty_to_match is set to the remaining quantity after consuming the head order
             else:
                 qty_matched = head_order.qty_not_matched
-                head_order.update_qty_not_matched(0)
                 if side == 'B':
                     price_removed = self.OpenAsks.remove_order_by_id(head_order.key)
                 else:
                     price_removed = self.OpenBids.remove_order_by_id(head_order.key)
+                head_order.update_qty_not_matched(0)
                 qty_to_match -= qty_matched
 
             # Construct the transaction record
@@ -293,6 +293,7 @@ class OrderEngine:
         print(self)
 
     def __str__(self):
+        # todo print the book in every 10k lines
         fileStr = StringIO()
 
         fileStr.write("\n========================= Bids =========================\n")
@@ -312,4 +313,8 @@ class OrderEngine:
         else:
             fileStr.write("No trades were made.")
         fileStr.write("\n")
+
+        # # write the fileStr to self.price_file
+        # self.price_file.write(fileStr.getvalue())
+
         return fileStr.getvalue()
