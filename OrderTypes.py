@@ -51,13 +51,12 @@ class orderA:
             "id": self.id,
             "qty": self.qty,
             "qty_not_executed": self.qty_not_executed,
-            "canceled": self.canceled
-            # "que_loc": self.que_loc            
-            # "network_time": self.network_time, 
-            # "bist_time": self.bist_time,
+            "canceled": self.canceled,
+            "que_loc": self.que_loc,         
+            "network_time": self.network_time, 
+            "bist_time": self.bist_time,
         }
         return pformat(str_dict, indent=4, width=1, compact=True)
-
 
 class orderE:
     """
@@ -98,23 +97,11 @@ class orderE:
         """
         self.qty_not_matched = qty
 
-    # def add_order_list(self, order_list):
-    #     """
-    #     Will be called by insert_order() of OrderTree class when an order is inserted into the tree
-    #     """
-    #     self.order_list = order_list
-
-    # def next_order(self):
-    #     """
-    #     Will be called by OrderList methods when an order is inserted or removed to/from the list
-    #     """
-    #     return self.next_order
-
-    # def prev_order(self):
-    #     """
-    #     Will be called by OrderList methods when an order is inserted or removed to/from the list
-    #     """
-    #     return self.prev_order
+    def add_order_list(self, order_list):
+        """
+        Will be called by insert_order() of OrderTree class when an order is inserted into the tree
+        """
+        self.order_list = order_list
 
     def __str__(self):
         str_dict = {
@@ -123,12 +110,37 @@ class orderE:
             "price": self.price,
             "id": self.id,
             "qty": self.qty,
-            "qty_not_matched": self.qty_not_matched
+            "qty_not_matched": self.qty_not_matched,
+            "que_loc": self.que_loc
             # "network_time": self.network_time, 
             # "bist_time": self.bist_time,
             # "que_loc": self.que_loc            
         }
         return pformat(str_dict, indent=4, width=1, compact=True)
+
+    def __eq__(self, other):
+        # compares self.que_loc
+        return self.que_loc == other.que_loc
+
+    def __ge__(self, other):
+        # compares self.que_loc
+        return self.que_loc >= other.que_loc
+    
+    def __gt__(self, other):
+        # compares self.que_loc
+        return self.que_loc > other.que_loc
+    
+    def __le__(self, other):
+        # compares self.que_loc
+        return self.que_loc <= other.que_loc
+
+    def __lt__(self, other):
+        # compares self.que_loc
+        return self.que_loc < other.que_loc
+    
+    def __ne__(self, other):
+        # compares self.que_loc
+        return self.que_loc != other.que_loc
 
 class orderD:
     """
@@ -142,4 +154,3 @@ class orderD:
 
     def __str__(self):
         return pformat(vars(self), indent=4, width=1, compact=True)
-

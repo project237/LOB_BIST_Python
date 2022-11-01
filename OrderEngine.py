@@ -1,8 +1,9 @@
 
-from io import StringIO
+from io         import StringIO
 from OrderTypes import orderA, orderE, orderD
-from OrderTree import OrderTree
-from pprint import pprint, pformat
+from OrderTree  import OrderTree
+from pprint     import pprint, pformat
+import os
 
 class InvalidOrder(Exception):
     """
@@ -12,25 +13,30 @@ class InvalidOrder(Exception):
 
 class OrderEngine:
     """
+    Saves the market as well as the trade data to a new directory called "output" (creates it if it doesn't exist)
+    Default file names are "market_data.csv" and "trades.csv"
+    
     ASSUMPTIONS:
     1- An order A cannot receive an orderE and orderD at different times
     2- Column order_id, together with bist_time uniquely identifies the orderE, thus there cannot be orderEs with the same order_id and bist_time 
     """
-    def __init__(self, debug_mode=False, price_file=None):
+    def __init__(self, debug_mode=False, price_file="market_data.csv", trades_file="trades.csv"):
         self.debug_mode          = debug_mode # if True, prints the order book, closed_orderAs and active_orderAs after processing each order
         self.price_file          = price_file # file name where the market info will be recorded
-        self.OpenBids            = OrderTree()
-        self.OpenAsks            = OrderTree()
+        self.trades_file         = trades_file # file name where the trades will be recorded
+        self.price_file_stream   = StringIO() # stream where the market info will be recorded
+        self.trades_file_stream  = StringIO() # stream where the trades will be recorded
+        self.OpenBids            = OrderTree(isbid=True)
+        self.OpenAsks            = OrderTree(isbid=False)
         self.trades              = [] # A list of trades that have been matched
         self.closed_orderAs      = [] # List of orderA's that have been fully matched or canlceled, which esentially contains other orders
         self.active_orderAs      = {} # A dict of orderA objects that are not yet fully matched, key = order id, value = order object
         self.time_series         = [] # A list of dicts, each dict contains the order book at a specific time
         self.last_trades         = [] # A list of last trades that have been matched
 
-        # add columns to the price file if a file name is provided
-        if self.price_file is not None:
-            with open(self.price_file, 'w') as f:
-                f.write("bist_time,ask,bid,volume\n")
+        # add columns to the price file
+        self.price_file_stream.write("bist_time,ask,bid,volume\n")
+        self.trades_file_stream.write("bist_time,price,qty,bid_id,ask_id,\n")
 
     def process_order(self, line):
         """
@@ -98,7 +104,7 @@ class OrderEngine:
         """
         Called by process_order() when msg_type == "E"
         """
-        qty_not_matched  = orderE.qty    # this will be decremented if processing as if a market order, otherwise, inserted into book as it is
+        qty_not_matched  = orderE.qty_not_matched # this will be decremented if processing as if a market order, otherwise, inserted into book as it is
         orderA           = self.get_order_with_id(orderE.id)
         side             = orderA.side
         key              = orderE.key
@@ -110,17 +116,17 @@ class OrderEngine:
         if orderA.qty_not_executed == 0:
             self.remove_order_from_book(orderA)
 
+        # list of trades for output
+        trades      = []
+        last_trades = []
+
         # If orderE price is worse than the market price, then calls match_orders as if it was a market order
         # If it is better than the market price, then it adds the order to the book
         # Make sure that qty is greater than 0, self.OpenAsks is not empty
         if side == "B":
-            best_price = self.OpenAsks.min_price
-            while ((qty_not_matched > 0) and (self.OpenAsks) and (price >= best_price)) == True:
-                price_list = self.OpenAsks.get_price_list(best_price)
-
-                qty_not_matched, price_removed = self.match_orders(side, key, qty_not_matched, best_price, price_list)
-                orderE.update_qty_not_matched(qty_not_matched)
-                best_price = self.OpenAsks.min_price
+            if self.OpenAsks.volume > 0:
+                qty_not_matched, last_trades = self.OpenAsks.process_order(orderE)
+                trades.extend(last_trades)
 
             # If there is remaning qty, then add it to the book
             if qty_not_matched > 0:
@@ -128,20 +134,18 @@ class OrderEngine:
 
         # In this case the side is "S"
         else:
-            best_price = self.OpenBids.max_price
-            while ((qty_not_matched > 0) and self.OpenBids and (price <= self.OpenBids.max_price)) == True:
-                price_list = self.OpenBids.get_price_list(best_price)
-
-                qty_not_matched, price_removed = self.match_orders(side, key, qty_not_matched, best_price, price_list)
-                orderE.update_qty_not_matched(qty_not_matched)
-                best_price = self.OpenBids.max_price
+            if self.OpenBids.volume > 0:
+                qty_not_matched, last_trades = self.OpenBids.process_order(orderE)
+                trades.extend(last_trades)
 
             # If there is remaning qty, then add it to the book
             if qty_not_matched > 0:
                 self.OpenAsks.insert_order(orderE)
 
-        # When done with matching the order, append the market info to self.time_series 
-        self.market_to_file(orderE.bist_time)
+        # If any trades have been made, append the market and trades info to their output streams 
+        if trades is not []:
+            self.market_to_file(orderE.bist_time)
+            self.trades_to_file(trades)
 
     def remove_order_from_book(self, orderA):
         """
@@ -157,93 +161,13 @@ class OrderEngine:
         self.closed_orderAs.append(orderA)
 
     def get_order_with_id(self, id):
-        return self.active_orderAs[id]
-
-    def market_to_file(self, bist_time):
         """
-        Called by process_execute_order() each time an orderE is matched with the market
-        Open the file in append mode, create if it does not exist
-        """
-        line_list = [
-            bist_time,
-            self.OpenAsks.min_price,
-            self.OpenBids.max_price,
-            self.OpenBids.volume + self.OpenAsks.volume
-        ]
-        line = ",".join([str(x) for x in line_list])
-        with open(self.price_file, 'a') as f:
-            f.write(line + "\n")
-
-    def match_orders(self, side, key, qty_to_match, price, price_list):
-        """
-        Called by process_execute_order() whenever the price of the order is worse or equal to the market price
-        and thus needs to be processed as if it was a market order 
-        This will be called inside a while loop until qty_to_match is 0 or price_list is empty
-
-        Args:
-            side         - "B" or "S", the side incoming order (and not the side of the best price list)
-            key          - the key of the incoming order
-            qty_to_match - the qty of the incoming order that has not been matched yet
-            price_list   - OrderList of orders at the best price on the other side of the book 
+        Arguments:
+            id: str, id of the orderA
         Returns:
-            qty_to_match  - the orderE qty that is not matched yet
-            price_removed - A flag that indicates if the price_list removed from the book
+            orderA: orderA object
         """
-        price_removed = False 
-
-        # match the orders as long as there is quantity to trade and the order list is not empty
-        while ((qty_to_match > 0) and (len(price_list) != 0)):
-
-            # where we start checking the queue of orders at the same price
-            head_order = price_list.head_order
-
-            # If the head_order can match the entire qty_to_match, updates the head_order quantity before setting the qty_to_match to 0
-            if qty_to_match < head_order.qty_not_matched:
-                qty_matched = qty_to_match
-                remaining_head_qty = head_order.qty_not_matched - qty_to_match
-                head_order.update_qty_not_matched(remaining_head_qty)
-                qty_to_match = 0
-
-            # If the head_order qty is equal to the qty_to_match, removes the head order from the correct orderTree depending on the side
-            # before setting the qty_to_match to 0
-            elif qty_to_match == head_order.qty_not_matched:
-                qty_matched = qty_to_match
-                if side == 'B':
-                    price_removed = self.OpenAsks.remove_order_by_id(head_order.key)
-                else:
-                    price_removed = self.OpenBids.remove_order_by_id(head_order.key)
-                head_order.update_qty_not_matched(0)
-                qty_to_match = 0
-
-            # If the qty_to_match is greater than the head_order qty, 
-            # the process is just like the one above, except, at the end qty_to_match is set to the remaining quantity after consuming the head order
-            else:
-                qty_matched = head_order.qty_not_matched
-                if side == 'B':
-                    price_removed = self.OpenAsks.remove_order_by_id(head_order.key)
-                else:
-                    price_removed = self.OpenBids.remove_order_by_id(head_order.key)
-                head_order.update_qty_not_matched(0)
-                qty_to_match -= qty_matched
-
-            # Construct the transaction record
-            transaction_dict = {
-                # 'timestamp': orderE.bist_time,
-                'price': price,
-                'qty': qty_matched,
-                }
-
-            if side == 'B':
-                transaction_dict['bid'] = [head_order.key]
-                transaction_dict['ask'] = [key]
-            else:
-                transaction_dict['bid'] = [key]
-                transaction_dict['ask'] = [head_order.key]
-            self.trades.append(transaction_dict)
-            self.last_trades.append(transaction_dict)
-
-        return qty_to_match, price_removed
-
+        return self.active_orderAs[id]
     def get_volume_at_price(self, price):
         """
         Returns volume at a price
@@ -253,8 +177,58 @@ class OrderEngine:
             volume = self.OpenBids.price_dict[price].volume
         if price in self.OpenAsks:
             volume = self.OpenAsks.price_dict[price].volume
-
         return volume
+
+    def trades_to_file(self, trades):
+        """
+        Called by process_execute_order() 
+        Adds the trades to the output stream, that will be saved to file when save_to_file() is called
+
+        Arguments:
+            trades: list of trade dicts
+        """
+        for trade in trades:
+            if trade is not []:
+                line = ",".join([str(x) for x in trade])
+                self.trades_file_stream.write(line + "\n")
+    
+    def market_to_file(self, bist_time):
+        """
+        Called by process_execute_order() each time an orderE is matched with the market
+        Adds the market data to the output stream, that will be saved to file when save_to_file() is called
+
+        Arguments:
+            bist_time: int, time of the orderE
+        """
+        line_list = [
+            bist_time,
+            self.OpenAsks.min_price,
+            self.OpenBids.max_price,
+            self.OpenBids.volume + self.OpenAsks.volume
+        ]
+        line = ",".join([str(x) for x in line_list])
+        # with open(self.price_file, 'a') as f:
+        #     f.write(line + "\n")
+        self.price_file_stream.write(line + "\n")
+
+    def save_to_file(self):
+        """
+        Saves the both self.price_file_stream self.trades_file_stream into files with names self.price_file and self.trades_file
+        """
+        # open directory "ouput" if it does not exist
+        if not os.path.exists("output"):
+            os.makedirs("output")
+        # open self.price_file under "output" directory, and write the contents of self.price_file_stream into it
+        with open(os.path.join("output", self.price_file), 'w') as f:
+            f.write(self.price_file_stream.getvalue())
+        # same for self.trades_file
+        with open(os.path.join("output", self.trades_file), 'w') as f:
+            f.write(self.trades_file_stream.getvalue())
+            
+        # with open(self.price_file, "w") as f:
+        #     f.write(self.price_file_stream.getvalue())
+        # with open(self.trades_file, "w") as f:
+        #     f.write(self.trades_file_stream.getvalue())
 
     def display_open_and_closed_orders(self):
         """
@@ -267,24 +241,6 @@ class OrderEngine:
         # print("CLOSED ORDERS:")
         # print(len(self.closed_orderAs))
         # [print(order) for order in self.closed_orderAs]
-
-    def tape_dump(self, fname, fmode, tmode):
-        """
-        Todo: test this
-        Dumps the list of trades to a file
-
-        PARAMETERS:
-        fname - file name
-        fmode - file mode
-        tmode - tape mode - if "wipe" then the file is wiped after writing
-        """
-        dump_file = open(fname, fmode)
-        for tape_item in self.trades:
-            # dump_file.write('%s, %s, %s\n' % (tape_item['time'], tape_item['price'], tape_item['qty']))
-            dump_file.write(f"{tape_item['time']}, {tape_item['price']}, {tape_item['qty']}\n")
-        dump_file.close()
-        if tmode == 'wipe':
-                self.trades = []
 
     def display_book(self):
         """

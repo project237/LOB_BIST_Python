@@ -1,12 +1,15 @@
 #!/usr/bin/python
 
-from bintrees import FastRBTree
-from OrderList import OrderList
+from OrderQue   import OrderQue
+from bintrees   import FastRBTree
+from OrderTypes import orderE
 
 class OrderTree(object):
 # class OrderTree:
 # TODO -try commented above
+
     """
+    todo - change pricelist to orderque
     Both bids and asks have their own Tree object which sorts them in their order of priority to be matched,
     first by the price, then by the que_loc of the order. 
     The main data structure used for sorting the orders is a Reb Black Tree. We also use two dicts,
@@ -14,16 +17,18 @@ class OrderTree(object):
 
     Credit - https://github.com/abcabhishek/PyLimitOrderBook/blob/master/pylimitbook/tree.py
     """
-    def __init__(self):
-        self.price_tree = FastRBTree() # Key: price, Value: OrderList object
-        self.volume = 0
-        self.price_dict = {}  # Key: price, Value: OrderList object
+    def __init__(self, isbid: bool):
+        self.isbid      = isbid # True if bid, False if ask
+        self.price_tree = FastRBTree() # Key: price, Value: OrderQue object
+        self.volume     = 0
+        self.price_dict = {}  # Key: price, Value: OrderQue object
         self.order_dict = {}  # Key: orderE.key, Value: orderE object
-        self.min_price = None
-        self.max_price = None
+        self.min_price  = None
+        self.max_price  = None
     
     def __str__(self):
         # print keys and values of price_dict on seperate lines
+        # todo sort acc to isbid
         out_str = ""
         for key, value in sorted(self.price_dict.items()):
             out_str += f"{key}: {value}\n"
@@ -40,9 +45,15 @@ class OrderTree(object):
 
     def get_order(self, key):
         return self.order_dict[key]
+    
+    def get_order_que(self, price):
+        """
+        Called by OrderEngine.match_orders() to get the OrderQue object of the incoming orderE price
+        """
+        return self.price_dict[price]
 
     def create_price(self, price):
-        new_list = OrderList()
+        new_list = OrderQue()
         self.price_tree.insert(price, new_list)
         self.price_dict[price] = new_list
         if self.max_price == None or price > self.max_price:
@@ -72,40 +83,122 @@ class OrderTree(object):
     def order_exists(self, key):
         return key in self.order_dict
 
+    def match_orders_at_price(self, orderE, qty_to_match, order_que):
+        """
+        Called by OrderTree.match_order_loop() whenever an incoming orderE is at or worse than the market price
+
+        Arguments:
+            orderE: orderE object
+            qty_to_match: int, qty of incoming orderE that has not been matched yet
+            order_que: OrderQue object, at the same price as incoming orderE
+        Returns:
+            qty_not_matched: int, the qty of the incoming orderE that has not been matched
+            trades: list of Trade lists, will be later saved to file at OrderEngine.save_to_file()
+        """
+
+        trades = []
+
+        # match the orders as long as there is quantity to trade and the order list is not empty
+        while ((qty_to_match > 0) and (len(order_que) != 0)):
+
+            # where we start checking the queue of orders at the same price
+            head_order = order_que.get_head()
+
+            # If the head_order can match the entire qty_to_match, updates the head_order quantity before setting the qty_to_match to 0
+            if qty_to_match < head_order.qty_not_matched:
+                qty_matched = qty_to_match
+                remaining_head_qty = head_order.qty_not_matched - qty_to_match
+                head_order.update_qty_not_matched(remaining_head_qty)
+                qty_to_match = 0
+
+            # If the head_order qty is equal to the qty_to_match, removes the head order from the correct orderTree depending on the side
+            # before setting the qty_to_match to 0
+            elif qty_to_match == head_order.qty_not_matched:
+                qty_matched = qty_to_match
+                self.remove_order_by_key(head_order.key)
+                head_order.update_qty_not_matched(0)
+                qty_to_match = 0
+
+            # If the qty_to_match is greater than the head_order qty, 
+            # the process is just like the one above, except, at the end qty_to_match is set to the remaining quantity after consuming the head order
+            else:
+                qty_matched = head_order.qty_not_matched
+                self.remove_order_by_key(head_order.key)
+                head_order.update_qty_not_matched(0)
+                qty_to_match -= qty_matched
+            
+            # Construct the transaction record
+            bid_id, ask_id = None, None
+            if orderE.side == 'B':
+                bid_id = int(head_order.id)
+                ask_id = int(orderE.id)
+            else:
+                bid_id = int(orderE.id)
+                ask_id = int(head_order.id)
+
+            transaction_list = [
+                orderE.bist_time,
+                orderE.price,
+                qty_matched,
+                bid_id,
+                ask_id
+            ]
+            trades.append(transaction_list)
+
+        return qty_to_match, trades
+
+    def process_order(self, orderE):
+        """
+        Called by OrderEngine.process_execute_order() whenever an incoming orderE is at or worse than the market price
+
+        Arguments:
+            orderE: orderE object
+        Returns:
+            qty_not_matched: int, the qty of the incoming orderE that has not been matched
+            trades: list of Trade dicts
+        """
+        qty_not_matched = orderE.qty_not_matched
+        price           = orderE.price
+        best_price      = self.max_price if self.isbid else self.min_price
+        
+        trades = []
+        while ((qty_not_matched > 0) and (price <= best_price if self.isbid else price >= best_price)) == True:
+            order_que = self.get_order_que(best_price)
+
+            qty_not_matched, trades_at_price = self.match_orders_at_price(orderE, qty_not_matched, order_que)
+            orderE.update_qty_not_matched(qty_not_matched)
+            trades.extend(trades_at_price)
+
+            # update best price
+            best_price = self.max_price if self.isbid else self.min_price
+        return qty_not_matched, trades
+
     def insert_order(self, order):
         """
-        order: orderE object
         Will be called by send_order_to_book() method of OrderEngine class, when a new orderE is received
+
+        Arguments:
+            order: orderE object
         """
         if order.price not in self.price_dict:
             self.create_price(order.price)
 
-        # order = Order(tick, self.price_dict[tick.price])
-        order.add_order_list(self.price_dict[order.price])
-
-        self.price_dict[order.price].append_order(order)
+        order_que = self.price_dict[order.price] 
+        order.add_order_list(order_que)
+        order_que.append_order(order)
         self.order_dict[order.key] = order
-        self.volume += order.qty
+        self.volume += order.qty_not_matched
 
-    def remove_order_by_id(self, key):
+    def remove_order_by_key(self, key):
         """
         Called by OrderEngine.match_orders() whenever an incoming orderE is matched on orderE on the OrderTree
 
-        Returns:
-            removed: Bool, True if the price_list has been removed from the tree 
+        Arguments:
+            key: int, key of the orderE to be removed
         """
-        removed = False
         order = self.order_dict[key]
-        self.volume -= order.qty
-        order.order_list.remove_order(order)
+        self.volume -= order.qty_not_matched
+        order.order_list.remove_order()
         if len(order.order_list) == 0:
             self.remove_price(order.price)
-            removed = True
         del self.order_dict[key]
-        return removed
-
-    def get_price_list(self, price):
-        """
-        Called by OrderEngine.match_orders() to get the OrderList object of the incoming orderE price
-        """
-        return self.price_dict[price]
