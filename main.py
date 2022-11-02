@@ -1,5 +1,5 @@
 
-INPUT_FILE_NAME  = "GARAN.E.mini.csv"
+INPUT_FILE_NAME  = "GARAN.E.csv"
 DEBUG_MODE       = 0
 
 from OrderEngine import OrderEngine
