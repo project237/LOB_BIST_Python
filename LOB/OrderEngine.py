@@ -1,7 +1,7 @@
 
-from io         import StringIO
-from OrderTypes import orderA, orderE, orderD
-from OrderTree  import OrderTree
+from io             import StringIO
+from LOB.OrderTypes import orderA, orderE, orderD
+from LOB.OrderTree  import OrderTree
 import os
 
 class InvalidOrder(Exception):

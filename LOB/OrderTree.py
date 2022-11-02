@@ -1,8 +1,8 @@
 #!/usr/bin/python
 
-from OrderQue   import OrderQue
+from LOB.OrderQue   import OrderQue
 from bintrees   import FastRBTree
-from OrderTypes import orderE
+from LOB.OrderTypes import orderE
 
 class OrderTree(object):
 # class OrderTree:
