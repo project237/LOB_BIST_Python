@@ -52,22 +52,12 @@ class OrderEngine:
         with open(file_name, "r") as f:
             for i, l in enumerate(f):
                 self.last_line = i
-                # percent = round(i/num_lines*100, 2)
-                # if self.debug_mode: 
-                #     print(f"\n=============================== At Line {i+1:>7} ({percent:>5}%) ==============================")
-                #     # if i == 30000: 
-                #     #     print("DEBUG MODE: FINISHED")
-                #     #     break
-                # elif i % 1000 == 0:
-                #     print(f"\n=============================== At Line {i+1:>7} ({percent:>5}%) ==============================")
-
+                
                 # terminate if we reach the end of the file
                 if l in ["", "\n"] or (i == num_lines-1): 
                     print("\n===================================== END OF FILE REACHED =====================================")
                     break
-                if i == 2000:
-                    pass
-                
+
                 try:
                     self.process_order(l)
                 except InvalidOrder as e:
