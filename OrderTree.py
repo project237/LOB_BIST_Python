@@ -167,17 +167,10 @@ class OrderTree(object):
         """
         qty_not_matched = orderE.qty_not_matched
         price           = orderE.price
-        best_price      = None
-        process_as_market = False
-        if self.isbid:
-            best_price = self.max_price
-            process_as_market = (price <= best_price)
-        else:
-            best_price = self.min_price
-            process_as_market = (price >= best_price)
+        best_price      = self.max_price if self.isbid else self.min_price
         
         trades = []
-        while ((qty_not_matched > 0) and (process_as_market)) == True:
+        while ((qty_not_matched > 0) and (price <= best_price if self.isbid else price >= best_price)) == True:
             order_que = self.get_order_que(best_price)
 
             qty_not_matched, trades_at_price = self.match_orders_at_price(orderE, qty_not_matched, order_que, best_price)
@@ -185,12 +178,7 @@ class OrderTree(object):
             trades.extend(trades_at_price)
 
             # update best price
-            # best_price = self.max_price if self.isbid else self.min_price
-            if self.isbid:
-                best_price =  self.max_price
-            else:
-                best_price =  self.max_price
-
+            best_price = self.max_price if self.isbid else self.min_price
         return qty_not_matched, trades
 
     def insert_order(self, order):
