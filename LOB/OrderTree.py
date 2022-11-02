@@ -1,21 +1,15 @@
 #!/usr/bin/python
 
 from LOB.OrderQue   import OrderQue
-from bintrees   import FastRBTree
+from bintrees       import FastRBTree
 from LOB.OrderTypes import orderE
 
 class OrderTree(object):
-# class OrderTree:
-# TODO -try commented above
-
     """
-    todo - change pricelist to orderque
     Both bids and asks have their own Tree object which sorts them in their order of priority to be matched,
     first by the price, then by the que_loc of the order. 
     The main data structure used for sorting the orders is a Reb Black Tree. We also use two dicts,
     One that stores order_list objects by price, and one that stores orders by order_id.
-
-    Credit - https://github.com/abcabhishek/PyLimitOrderBook/blob/master/pylimitbook/tree.py
     """
     def __init__(self, isbid: bool):
         self.isbid      = isbid # True if bid, False if ask
@@ -28,7 +22,6 @@ class OrderTree(object):
     
     def __str__(self):
         # print keys and values of price_dict on seperate lines
-        # todo sort acc to isbid
         out_str = ""
         # reverse = False if self.isbid else True
         for key, value in sorted(self.price_dict.items(), reverse=True):

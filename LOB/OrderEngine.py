@@ -19,7 +19,7 @@ class OrderEngine:
     1- An order A cannot receive an orderE and orderD at different times
     2- Column order_id, together with bist_time uniquely identifies the orderE, thus there cannot be orderEs with the same order_id and bist_time 
     """
-    def __init__(self, debug_mode=False, price_file="market_data0.csv", trades_file="trades0.csv", order_book_file="LOB0.txt"):
+    def __init__(self, debug_mode=False, price_file="market_data.csv", trades_file="trades.csv", order_book_file="lob_out.txt"):
         self.debug_mode          = debug_mode # if True, prints the order book, closed_orderAs and active_orderAs after processing each order
         self.price_file          = price_file # file name where the market info will be recorded
         self.trades_file         = trades_file # file name where the trades will be recorded
@@ -68,10 +68,10 @@ class OrderEngine:
                     self.output_stream.write(f'\nError: "{e}" at line {(i+1)}')
                     self.output_stream.write("\nPrinting Order Book and exiting...")
                     self.output_stream.write(str(self))
-                    self.output_stream.write(self.display_book())
+                    self.output_stream.write(str(self))
                     raise e
             # self.output_stream.write(self.output_stream.getvalue())
-                
+            self.output_stream.write(self.display_final())
         self.save_to_file()
 
     def process_order(self, line):
@@ -124,7 +124,7 @@ class OrderEngine:
                 return
             else:
                 self.output_stream.write("Incoming Order:\n\n", order)
-                self.display_book()
+                print(self)
                 return
 
     def process_delete_order(self, orderD):
@@ -272,9 +272,9 @@ class OrderEngine:
         """
         Prints the number of open and closed orders
         """
-        self.output_stream.write("\nNumber of A orders:")
-        self.output_stream.write(f"Open: {len(self.active_orderAs)}")
-        self.output_stream.write(f"Closed: {len(self.closed_orderAs)}")
+        print("\nNumber of A orders:")
+        print(f"Open: {len(self.active_orderAs)}")
+        print(f"Closed: {len(self.closed_orderAs)}")
 
         # UCOMMENT TO SEE THE LIST OF CLOSED ORDERS
         # [print(order) for order in self.active_orderAs.values()]
@@ -282,18 +282,18 @@ class OrderEngine:
         # print(len(self.closed_orderAs))
         # [print(order) for order in self.closed_orderAs]
 
-    def display_book(self):
+    def display_final(self):
         """
         A user friendly method that prints string representation of the book. 
         """
-        return str(self)
+        S = "\nTotal trades recorded: " + str(len(self.closed_orderAs))
+        return S
 
     def __str__(self):
-        # todo print the book in every 10k lines
         S = ""
         last_line = self.last_line
         percent = round(last_line / self.tot_lines * 100, 2)
-        S += f"\n=============================== At Line {last_line+1:>7} ({percent:>5}%) =============================="
+        S +=  f"\n=================================================== At Line {last_line+1:>7} ({percent:>5}%) =========="
         print(f"\n=============================== At Line {last_line+1:>7} ({percent:>5}%) ==============================")
 
         S += "\n================= Asks =================\n"
@@ -313,8 +313,5 @@ class OrderEngine:
         else:
             S += "| No trades were made.                 |\n"
         S += "\n"
-
-        # # write the fileStr to self.price_file
-        # self.price_file.write(fileStr.getvalue())
 
         return S

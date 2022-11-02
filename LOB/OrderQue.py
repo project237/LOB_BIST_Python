@@ -33,16 +33,6 @@ class OrderQue(object):
         self.volume += order.qty_not_matched
         heapq.heappush(self.heap, order)
 
-    # def remove_order(self, order):
-    #     """
-    #     order: orderE object
-    #     """
-    #     self.volume -= order.qty_not_matched
-    #     self.length -= 1
-    #     if len(self) == 0:
-    #         return
-    #     heapq.heappop(self.heap)
-
     def remove_order(self):
         """
         Removes the orderE object at the head of the heap,
