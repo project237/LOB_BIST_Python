@@ -2,7 +2,7 @@
 INPUT_FILE_NAME  = "GARAN.E.csv"
 DEBUG_MODE       = 0
 
-from OrderEngine import OrderEngine
+from LOB.OrderEngine import OrderEngine
 
 def main():
     # ord_engine = OrderEngine(debug_mode=DEBUG_MODE, price_file=MARKET_FILE_NAME, trades_file=TRADES_FILE_NAME)
