@@ -19,10 +19,11 @@ class OrderEngine:
     1- An order A cannot receive an orderE and orderD at different times
     2- Column order_id, together with bist_time uniquely identifies the orderE, thus there cannot be orderEs with the same order_id and bist_time 
     """
-    def __init__(self, debug_mode=False, price_file="market_data.csv", trades_file="trades.csv"):
+    def __init__(self, debug_mode=False, price_file="market_data0.csv", trades_file="trades0.csv", order_book_file="LOB0.txt"):
         self.debug_mode          = debug_mode # if True, prints the order book, closed_orderAs and active_orderAs after processing each order
         self.price_file          = price_file # file name where the market info will be recorded
         self.trades_file         = trades_file # file name where the trades will be recorded
+        self.order_book_file     = order_book_file # file name where the order book (as well as other output) will be recorded
         self.price_file_stream   = StringIO() # stream where the market info will be recorded
         self.trades_file_stream  = StringIO() # stream where the trades will be recorded
         self.output_stream       = StringIO() # stream where the output will be recorded
@@ -55,21 +56,21 @@ class OrderEngine:
                 
                 # terminate if we reach the end of the file
                 if l in ["", "\n"] or (i == num_lines-1): 
-                    print("\n===================================== END OF FILE REACHED =====================================")
+                    self.output_stream.write("\n===================================== END OF FILE REACHED =====================================")
                     break
 
                 try:
                     self.process_order(l)
                 except InvalidOrder as e:
                     # This error doesn't raise any exception, so we ignore the invalid order and process the next one
-                    print(f'\nInvalid order at line {(i+1)} due to \n==> {e}')
+                    self.output_stream.write(f'\nInvalid order at line {(i+1)} due to \n==> {e}')
                 except Exception as e :
-                    print(f'\nError: "{e}" at line {(i+1)}')
-                    print("\nPrinting Order Book and exiting...")
-                    print(str(self))
-                    self.display_book()
+                    self.output_stream.write(f'\nError: "{e}" at line {(i+1)}')
+                    self.output_stream.write("\nPrinting Order Book and exiting...")
+                    self.output_stream.write(str(self))
+                    self.output_stream.write(self.display_book())
                     raise e
-            print(self.output_stream.getvalue())
+            # self.output_stream.write(self.output_stream.getvalue())
                 
         self.save_to_file()
 
@@ -122,7 +123,7 @@ class OrderEngine:
                 self.display_open_and_closed_orders()
                 return
             else:
-                print("Incoming Order:\n\n", order)
+                self.output_stream.write("Incoming Order:\n\n", order)
                 self.display_book()
                 return
 
@@ -183,8 +184,8 @@ class OrderEngine:
         if self.last_trades != []:
             self.market_to_file(orderE.bist_time)
             self.trades_to_file(trades)
-            self.display_book()
-            print("New orderE matched:\n\n", orderE)
+            self.output_stream.write(str(self))
+            self.output_stream.write("New orderE matched:\n\n" + str(orderE))
 
     def remove_order_from_book(self, orderA):
         """
@@ -264,14 +265,16 @@ class OrderEngine:
         # same for self.trades_file
         with open(os.path.join("output", self.trades_file), 'w') as f:
             f.write(self.trades_file_stream.getvalue())
+        with open(os.path.join("output", self.order_book_file), 'w') as f:
+            f.write(self.output_stream.getvalue())
 
     def display_open_and_closed_orders(self):
         """
         Prints the number of open and closed orders
         """
-        print("\nNumber of A orders:")
-        print(f"Open: {len(self.active_orderAs)}")
-        print(f"Closed: {len(self.closed_orderAs)}")
+        self.output_stream.write("\nNumber of A orders:")
+        self.output_stream.write(f"Open: {len(self.active_orderAs)}")
+        self.output_stream.write(f"Closed: {len(self.closed_orderAs)}")
 
         # UCOMMENT TO SEE THE LIST OF CLOSED ORDERS
         # [print(order) for order in self.active_orderAs.values()]
@@ -283,34 +286,35 @@ class OrderEngine:
         """
         A user friendly method that prints string representation of the book. 
         """
-        print(self)
+        return str(self)
 
     def __str__(self):
         # todo print the book in every 10k lines
-        fileStr = StringIO()
+        S = ""
         last_line = self.last_line
         percent = round(last_line / self.tot_lines * 100, 2)
-        fileStr.write(f"\n=============================== At Line {last_line+1:>7} ({percent:>5}%) ==============================")
+        S += f"\n=============================== At Line {last_line+1:>7} ({percent:>5}%) =============================="
+        print(f"\n=============================== At Line {last_line+1:>7} ({percent:>5}%) ==============================")
 
-        fileStr.write("\n================= Asks =================\n")
+        S += "\n================= Asks =================\n"
         if self.OpenAsks != None and len(self.OpenAsks) > 0:
-            fileStr.write(str(self.OpenAsks))
+            S += (str(self.OpenAsks))
 
-        fileStr.write("\n================= Bids =================\n")
+        S += "\n================= Bids =================\n"
         if self.OpenBids != None and len(self.OpenBids) > 0:
-            fileStr.write(str(self.OpenBids))
+            S += (str(self.OpenBids))
 
-        fileStr.write("\n================ Trades ================\n")
+        S += "\n================ Trades ================\n"
         if self.last_trades != []:
             for entry in self.last_trades:
                 trade_str = f"| p: {entry[1]:>5} | qty: {entry[2]:>5}                |\n"
-                fileStr.write(trade_str)
-                # fileStr.write(pformat(entry, width=1, compact=True))
+                S += trade_str
+                # S += (pformat(entry, width=1, compact=True))
         else:
-            fileStr.write("| No trades were made.                 |\n")
-        fileStr.write("\n")
+            S += "| No trades were made.                 |\n"
+        S += "\n"
 
         # # write the fileStr to self.price_file
         # self.price_file.write(fileStr.getvalue())
 
-        return fileStr.getvalue()
+        return S
