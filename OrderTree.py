@@ -30,8 +30,16 @@ class OrderTree(object):
         # print keys and values of price_dict on seperate lines
         # todo sort acc to isbid
         out_str = ""
-        for key, value in sorted(self.price_dict.items()):
-            out_str += f"{key}: {value}\n"
+        # reverse = False if self.isbid else True
+        for key, value in sorted(self.price_dict.items(), reverse=True):
+            qty_list = [order.qty_not_matched for order in value.heap]
+            # file_str.write("tot: {}, vol: {} ,{}| ".format(self.length, sum(qty_list)))
+            out_str += (f"| p: {key:>5}: | tot: {value.length:>4} | vol: {sum(qty_list):>7} |\n")
+            # out_str += f"| p: {key:>5}: {value}\n"
+        
+        out_str += f"|                                      |\n"
+        out_str += f"| Volume       : {self.volume:>9}             |\n"
+        out_str += f"| Total Orders : {len(self.order_dict):>9}             |\n"
         return out_str
 
     def __contains__(self, key):

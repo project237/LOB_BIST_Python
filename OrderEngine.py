@@ -2,7 +2,6 @@
 from io         import StringIO
 from OrderTypes import orderA, orderE, orderD
 from OrderTree  import OrderTree
-from pprint     import pprint, pformat
 import os
 
 class InvalidOrder(Exception):
@@ -26,6 +25,7 @@ class OrderEngine:
         self.trades_file         = trades_file # file name where the trades will be recorded
         self.price_file_stream   = StringIO() # stream where the market info will be recorded
         self.trades_file_stream  = StringIO() # stream where the trades will be recorded
+        self.output_stream       = StringIO() # stream where the output will be recorded
         self.OpenBids            = OrderTree(isbid=True)
         self.OpenAsks            = OrderTree(isbid=False)
         self.trades              = [] # A list of trades that have been matched
@@ -33,10 +33,55 @@ class OrderEngine:
         self.active_orderAs      = {} # A dict of orderA objects that are not yet fully matched, key = order id, value = order object
         self.time_series         = [] # A list of dicts, each dict contains the order book at a specific time
         self.last_trades         = [] # A list of last trades that have been matched
+        self.last_line           = None # Counter for the last line index that was processed
+        self.tot_lines           = None # Total number of lines in the file
 
         # add columns to the price file
         self.price_file_stream.write("bist_time,ask,bid,volume\n")
         self.trades_file_stream.write("bist_time,price,qty,bid_id,ask_id,\n")
+
+    def run_with_file(self, file_name):
+        """
+        Processes the orders in the file
+        """
+        num_lines = 0
+        with open(file_name, "r") as f:
+            num_lines = sum(1 for line in f)
+        self.tot_lines = num_lines
+
+        with open(file_name, "r") as f:
+            for i, l in enumerate(f):
+                self.last_line = i
+                # percent = round(i/num_lines*100, 2)
+                # if self.debug_mode: 
+                #     print(f"\n=============================== At Line {i+1:>7} ({percent:>5}%) ==============================")
+                #     # if i == 30000: 
+                #     #     print("DEBUG MODE: FINISHED")
+                #     #     break
+                # elif i % 1000 == 0:
+                #     print(f"\n=============================== At Line {i+1:>7} ({percent:>5}%) ==============================")
+
+                # terminate if we reach the end of the file
+                if l in ["", "\n"] or (i == num_lines-1): 
+                    print("\n===================================== END OF FILE REACHED =====================================")
+                    break
+                if i == 2000:
+                    pass
+                
+                try:
+                    self.process_order(l)
+                except InvalidOrder as e:
+                    # This error doesn't raise any exception, so we ignore the invalid order and process the next one
+                    print(f'\nInvalid order at line {(i+1)} due to \n==> {e}')
+                except Exception as e :
+                    print(f'\nError: "{e}" at line {(i+1)}')
+                    print("\nPrinting Order Book and exiting...")
+                    print(str(self))
+                    self.display_book()
+                    raise e
+            print(self.output_stream.getvalue())
+                
+        self.save_to_file()
 
     def process_order(self, line):
         """
@@ -49,6 +94,7 @@ class OrderEngine:
         quote_dict = dict(zip(keys_list, quote_list))
         msg_type = quote_dict["msg_type"]
         side     = quote_dict["side"]
+        self.last_trades = []
 
         try:
             assert len(quote_list) == 9, "quote_list must have 9 elements"
@@ -75,7 +121,6 @@ class OrderEngine:
             self.active_orderAs[order.id] = order  # adding the order to the active_orderAs
         elif msg_type == "E":
             order = orderE(quote_dict)
-            self.last_trades = []
             self.process_execute_order(order)
         elif msg_type == "D":
             order = orderD(quote_dict)
@@ -87,7 +132,7 @@ class OrderEngine:
                 self.display_open_and_closed_orders()
                 return
             else:
-                print("Incoming Order:\n", order)
+                print("Incoming Order:\n\n", order)
                 self.display_book()
                 return
 
@@ -142,10 +187,14 @@ class OrderEngine:
             if qty_not_matched > 0:
                 self.OpenAsks.insert_order(orderE)
 
+        self.last_trades = last_trades
+
         # If any trades have been made, append the market and trades info to their output streams 
-        if trades is not []:
+        if self.last_trades != []:
             self.market_to_file(orderE.bist_time)
             self.trades_to_file(trades)
+            self.display_book()
+            print("New orderE matched:\n\n", orderE)
 
     def remove_order_from_book(self, orderA):
         """
@@ -168,6 +217,7 @@ class OrderEngine:
             orderA: orderA object
         """
         return self.active_orderAs[id]
+
     def get_volume_at_price(self, price):
         """
         Returns volume at a price
@@ -224,11 +274,6 @@ class OrderEngine:
         # same for self.trades_file
         with open(os.path.join("output", self.trades_file), 'w') as f:
             f.write(self.trades_file_stream.getvalue())
-            
-        # with open(self.price_file, "w") as f:
-        #     f.write(self.price_file_stream.getvalue())
-        # with open(self.trades_file, "w") as f:
-        #     f.write(self.trades_file_stream.getvalue())
 
     def display_open_and_closed_orders(self):
         """
@@ -237,6 +282,8 @@ class OrderEngine:
         print("\nNumber of A orders:")
         print(f"Open: {len(self.active_orderAs)}")
         print(f"Closed: {len(self.closed_orderAs)}")
+
+        # UCOMMENT TO SEE THE LIST OF CLOSED ORDERS
         # [print(order) for order in self.active_orderAs.values()]
         # print("CLOSED ORDERS:")
         # print(len(self.closed_orderAs))
@@ -251,23 +298,26 @@ class OrderEngine:
     def __str__(self):
         # todo print the book in every 10k lines
         fileStr = StringIO()
+        last_line = self.last_line
+        percent = round(last_line / self.tot_lines * 100, 2)
+        fileStr.write(f"\n=============================== At Line {last_line+1:>7} ({percent:>5}%) ==============================")
 
-        fileStr.write("\n========================= Bids =========================\n")
-        if self.OpenBids != None and len(self.OpenBids) > 0:
-            fileStr.write(str(self.OpenBids))
-
-        fileStr.write("\n========================= Asks =========================\n")
+        fileStr.write("\n================= Asks =================\n")
         if self.OpenAsks != None and len(self.OpenAsks) > 0:
             fileStr.write(str(self.OpenAsks))
 
-        fileStr.write("\n======================== Trades ========================\n")
-        if self.last_trades != None and len(self.last_trades) > 0:
+        fileStr.write("\n================= Bids =================\n")
+        if self.OpenBids != None and len(self.OpenBids) > 0:
+            fileStr.write(str(self.OpenBids))
+
+        fileStr.write("\n================ Trades ================\n")
+        if self.last_trades != []:
             for entry in self.last_trades:
-                trade_str = f"P: {entry['price']} Q: {entry['qty']}\n"
+                trade_str = f"| p: {entry[1]:>5} | qty: {entry[2]:>5}                |\n"
                 fileStr.write(trade_str)
                 # fileStr.write(pformat(entry, width=1, compact=True))
         else:
-            fileStr.write("No trades were made.")
+            fileStr.write("| No trades were made.                 |\n")
         fileStr.write("\n")
 
         # # write the fileStr to self.price_file

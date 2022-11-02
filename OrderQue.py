@@ -63,12 +63,17 @@ class OrderQue(object):
         after printing the size and total volume
         """
         file_str = StringIO()
+        # we add up the order qty_not_matched of all orders before displaying them, 
+        # since self.vol doesn't account for difference in volume of orders that has been only partially matched
         qty_list = [order.qty_not_matched for order in self.heap]
-        file_str.write("tot: {}, vol: {} | ".format(self.length, sum(qty_list)))
-        for order in self.heap:
-            # displays heap as a chain of qty_not_matched values 
-            # file_str.write(f"-> {order.qty_not_matched}")
+        # file_str.write("tot: {}, vol: {} ,{}| ".format(self.length, sum(qty_list)))
+        file_str.write(f"| tot: {self.length:>4} | vol: {sum(qty_list):>7} |")
 
-            # displays heap as a chain of que_loc values 
-            file_str.write(f"-> {order.que_loc}")
+        # UNCOMMENT IF WANT TO DISPLAY THE LIST AS A CHAIN OF ORDER qty_not_matched OR que_loc VALUES
+        # for order in self.heap:
+        #     # displays heap as a chain of qty_not_matched values 
+        #     # file_str.write(f"-> {order.qty_not_matched}")
+
+        #     # displays heap as a chain of que_loc values 
+        #     file_str.write(f"-> {order.que_loc}")
         return file_str.getvalue()
