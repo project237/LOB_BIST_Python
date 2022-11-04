@@ -33,7 +33,7 @@ class OrderQue(object):
         self.volume += order.qty_not_matched
         heapq.heappush(self.heap, order)
 
-    def remove_order(self):
+    def remove_head_order(self):
         """
         Removes the orderE object at the head of the heap,
         which is the orderE with the lowest que_loc
@@ -43,6 +43,19 @@ class OrderQue(object):
         if len(self) == 0:
             return
         heapq.heappop(self.heap)
+
+    def remove_order_by_key(self, key):
+        """
+        Removes the orderE object with the given key from the heap
+        """
+        # from self.head delete the orderE object with the given key
+        for i, order in enumerate(self.heap):
+            if order.key == key:
+                self.volume -= order.qty_not_matched
+                self.length -= 1
+                del self.heap[i]
+                heapq.heapify(self.heap)
+                break
 
     def __len__(self):
         return self.length
