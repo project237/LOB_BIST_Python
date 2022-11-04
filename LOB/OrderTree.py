@@ -1,8 +1,8 @@
 #!/usr/bin/python
 
 from LOB.OrderQue   import OrderQue
-from bintrees       import FastRBTree
 from LOB.OrderTypes import orderE
+from bintrees       import FastRBTree
 
 class OrderTree(object):
     """
@@ -189,17 +189,25 @@ class OrderTree(object):
         order_que.append_order(order)
         self.order_dict[order.key] = order
         self.volume += order.qty_not_matched
+        # set the order_tree attribute of the orderE object
+        order.set_order_tree(self)
 
-    def remove_order_by_key(self, key):
+    def remove_order_by_key(self, key, not_head=False):
         """
-        Called by OrderEngine.match_orders() whenever an incoming orderE is matched on orderE on the OrderTree
+        Called when
+        a- orderA.process_delete_order() whenever an incoming orderE has fully matched order(s) in OrderTree,
+            in this case, not_head=True
+        b- OrderTree.match_orders_at_price() whenever an orderE is cancelled
 
         Arguments:
             key: int, key of the orderE to be removed
         """
         order = self.order_dict[key]
         self.volume -= order.qty_not_matched
-        order.order_list.remove_order()
+        if not_head:
+            order.order_list.remove_order_by_key(key)
+        else:
+            order.order_list.remove_head_order()
         if len(order.order_list) == 0:
             self.remove_price(order.price)
         del self.order_dict[key]
