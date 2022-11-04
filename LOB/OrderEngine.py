@@ -56,7 +56,10 @@ class OrderEngine(object):
                 
                 # terminate if we reach the end of the file
                 if l in ["", "\n"] or (i == num_lines-1): 
-                    self.output_stream.write("\n===================================== END OF FILE REACHED =====================================")
+                    self.output_stream.write("\n================================= END OF FILE REACHED =================================")
+                    print("\n================================= END OF FILE REACHED =================================")
+                    print("\n================================ SAVED FILES TO /output ===============================")
+                    print()
                     break
 
                 try:
