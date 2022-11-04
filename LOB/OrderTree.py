@@ -131,11 +131,11 @@ class OrderTree(object):
             # Construct the transaction record
             bid_id, ask_id = None, None
             if orderE.side == 'B':
-                bid_id = int(head_order.id)
-                ask_id = int(orderE.id)
+                bid_id = int(head_order.key)
+                ask_id = int(orderE.key)
             else:
-                bid_id = int(orderE.id)
-                ask_id = int(head_order.id)
+                bid_id = int(orderE.key)
+                ask_id = int(head_order.key)
 
             transaction_list = [
                 orderE.bist_time,
