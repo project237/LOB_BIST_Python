@@ -39,7 +39,7 @@ class OrderEngine(object):
 
         # add columns to the price file
         self.price_file_stream.write("bist_time,ask,bid,volume\n")
-        self.trades_file_stream.write("bist_time,price,qty,bid_id,ask_id,\n")
+        self.trades_file_stream.write("bist_time,price,qty,bid_key,ask_key,\n")
 
     def run_with_file(self, file_name):
         """
