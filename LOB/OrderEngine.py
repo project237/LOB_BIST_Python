@@ -18,7 +18,7 @@ class OrderEngine(object):
     ASSUMPTIONS:
     1- Column order_id, together with bist_time uniquely identifies the orderE, thus there cannot be orderEs with the same order_id and bist_time 
     """
-    def __init__(self, debug_mode=False, price_file="market_data.csv", trades_file="trades.csv", order_book_file="LOB.txt", orderA_file="closed_orders.txt"):
+    def __init__(self, debug_mode=False, price_file="market_data.csv", trades_file="trades.csv", order_book_file="LOB.txt", orderA_file="closed_orders.txt", lob_file="LOB.csv"):
         self.debug_mode          = debug_mode # if True, prints the order book, closed_orderAs and active_orderAs after processing each order
         self.price_file          = price_file # file name where the market info will be recorded
         self.trades_file         = trades_file # file name where the trades will be recorded
@@ -26,6 +26,7 @@ class OrderEngine(object):
         self.price_file_stream   = StringIO() # stream where the market info will be recorded
         self.trades_file_stream  = StringIO() # stream where the trades will be recorded
         self.output_stream       = StringIO() # stream where the output will be recorded
+        self.lob_stream          = StringIO() # stream where the order book will be recorded
         self.OpenBids            = OrderTree(isbid=True)
         self.OpenAsks            = OrderTree(isbid=False)
         self.trades              = [] # A list of trades that have been matched
@@ -36,10 +37,12 @@ class OrderEngine(object):
         self.last_line           = None # Counter for the last line index that was processed
         self.tot_lines           = None # Total number of lines in the file
         self.orderA_file         = orderA_file # file name where the orderA's will be recorded
+        self.lob_file            = lob_file # file name where the order book will be recorded
 
         # add columns to the price file
         self.price_file_stream.write("bist_time,ask,bid,volume\n")
         self.trades_file_stream.write("bist_time,price,qty,bid_key,ask_key,\n")
+        self.lob_stream.write("bist_time,ask_price1,ask_vol1,ask_price2,ask_vol2,ask_price3,ask_vol3,bid_price1,bid_vol1,bid_price2,bid_vol2,bid_price3,bid_vol3\n") 
 
     def run_with_file(self, file_name):
         """
@@ -70,7 +73,6 @@ class OrderEngine(object):
                 except Exception as e :
                     self.output_stream.write(f'\nError: "{e}" at line {(i+1)}')
                     self.output_stream.write("\nPrinting Order Book and exiting...")
-                    self.output_stream.write(str(self))
                     self.output_stream.write(str(self))
                     raise e
             self.output_stream.write(self.display_final())
@@ -195,6 +197,7 @@ class OrderEngine(object):
         if self.last_trades != []:
             self.market_to_file(orderE.bist_time)
             self.trades_to_file(trades)
+            self.lob_stream.write(str(orderE.bist_time) + ",")
             self.output_stream.write(str(self))
             self.output_stream.write("New orderE matched:\n\n" + str(orderE))
 
@@ -281,6 +284,9 @@ class OrderEngine(object):
         with open(os.path.join("output",self.orderA_file), 'w') as f:
             [f.write(str(x) + "\n") for x in self.closed_orderAs]
             # json.dump([str(x) for x in self.closed_orderAs], f)
+        with open(os.path.join("output",self.lob_file), 'w') as f:
+            f.write(self.lob_stream.getvalue())
+
 
     def display_open_and_closed_orders(self):
         """
@@ -312,11 +318,20 @@ class OrderEngine(object):
 
         S += "\n================= Asks =================\n"
         if self.OpenAsks != None and len(self.OpenAsks) > 0:
-            S += (str(self.OpenAsks))
+            # S += (str(self.OpenAsks))
+            ask_str, ask_list = self.OpenAsks.top_order_book()
+            S += ask_str
+            askline = ",".join([str(x) for x in ask_list])
+            self.lob_stream.write(str(askline) + ",")
+
 
         S += "\n================= Bids =================\n"
         if self.OpenBids != None and len(self.OpenBids) > 0:
-            S += (str(self.OpenBids))
+            # S += (str(self.OpenBids))
+            bid_str, bid_list = self.OpenBids.top_order_book()
+            S += bid_str
+            bidline = ",".join([str(x) for x in bid_list])
+            self.lob_stream.write(str(bidline) + "\n")
 
         S += "\n================ Trades ================\n"
         if self.last_trades != []:

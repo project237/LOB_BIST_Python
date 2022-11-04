@@ -130,9 +130,9 @@ class orderE:
             "id": self.id,
             "qty": self.qty,
             "qty_not_matched": self.qty_not_matched,
+            "bist_time": self.bist_time,
             # "que_loc": self.que_loc
             # "network_time": self.network_time, 
-            # "bist_time": self.bist_time,
             # "que_loc": self.que_loc            
         }
         return pformat(str_dict, indent=16, width=1, compact=True)

@@ -34,6 +34,41 @@ class OrderTree(object):
         out_str += f"| Volume       : {self.volume:>9}             |\n"
         out_str += f"| Total Orders : {len(self.order_dict):>9}             |\n"
         return out_str
+    
+    def top_order_book(self):
+        # print keys and values of price_dict on seperate lines
+        out_str = ""
+        out_list = []
+        price_vol_list = []
+        sorted_prices = sorted(self.price_dict.items(), reverse=True)
+        length = len(sorted_prices)
+        for key, value in sorted_prices:
+            qty_list = [order.qty_not_matched for order in value.heap]
+            # file_str.write("tot: {}, vol: {} ,{}| ".format(self.length, sum(qty_list)))
+            vol = sum(qty_list)
+            out_str += (f"| p: {key:>5}: | tot: {value.length:>4} | vol: {vol:>7} |\n")
+            # out_str += f"| p: {key:>5}: {value}\n"
+            price_vol_list.append([key, vol])
+
+        out_str += f"|                                      |\n"
+        out_str += f"| Volume       : {self.volume:>9}             |\n"
+        out_str += f"| Total Orders : {len(self.order_dict):>9}             |\n"
+
+        # if it is bid, add the largest 3 prices to the out_list, if less than 3 elements, appends [None, None]
+        if self.isbid:
+            out_list = price_vol_list[:3]
+            if length < 3:
+                out_list += [[None, None]] * (3 - len(out_list))
+        # if it is ask, add the smallest 3 prices to the out_list, if less than 3 elements, appends [[None, None]]
+        else:
+            out_list = price_vol_list[-3:]
+            # reverse out_list
+            out_list = out_list[::-1]
+            if length < 3:
+                out_list += [[None, None]] * (3 - len(out_list))
+        # concatenata all list in out_list to a single list
+        out_list = [item for sublist in out_list for item in sublist] 
+        return out_str, out_list
 
     def __contains__(self, key):
         return key in self.price_dict
