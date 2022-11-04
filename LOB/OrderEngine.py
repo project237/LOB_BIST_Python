@@ -1,8 +1,8 @@
-
 from io             import StringIO
 from LOB.OrderTypes import orderA, orderE, orderD
 from LOB.OrderTree  import OrderTree
 import os
+import json
 
 class InvalidOrder(Exception):
     """
@@ -10,16 +10,15 @@ class InvalidOrder(Exception):
     """
     pass
 
-class OrderEngine:
+class OrderEngine(object):
     """
     Saves the market as well as the trade data to a new directory called "output" (creates it if it doesn't exist)
     Default file names are "market_data.csv" and "trades.csv"
     
     ASSUMPTIONS:
-    1- An order A cannot receive an orderE and orderD at different times
-    2- Column order_id, together with bist_time uniquely identifies the orderE, thus there cannot be orderEs with the same order_id and bist_time 
+    1- Column order_id, together with bist_time uniquely identifies the orderE, thus there cannot be orderEs with the same order_id and bist_time 
     """
-    def __init__(self, debug_mode=False, price_file="market_data.csv", trades_file="trades.csv", order_book_file="lob_out.txt"):
+    def __init__(self, debug_mode=False, price_file="market_data.csv", trades_file="trades.csv", order_book_file="LOB.txt", orderA_file="closed_orders.txt"):
         self.debug_mode          = debug_mode # if True, prints the order book, closed_orderAs and active_orderAs after processing each order
         self.price_file          = price_file # file name where the market info will be recorded
         self.trades_file         = trades_file # file name where the trades will be recorded
@@ -36,6 +35,7 @@ class OrderEngine:
         self.last_trades         = [] # A list of last trades that have been matched
         self.last_line           = None # Counter for the last line index that was processed
         self.tot_lines           = None # Total number of lines in the file
+        self.orderA_file         = orderA_file # file name where the orderA's will be recorded
 
         # add columns to the price file
         self.price_file_stream.write("bist_time,ask,bid,volume\n")
@@ -70,7 +70,6 @@ class OrderEngine:
                     self.output_stream.write(str(self))
                     self.output_stream.write(str(self))
                     raise e
-            # self.output_stream.write(self.output_stream.getvalue())
             self.output_stream.write(self.display_final())
         self.save_to_file()
 
@@ -88,9 +87,9 @@ class OrderEngine:
         self.last_trades = []
 
         try:
-            assert len(quote_list) == 9, "quote_list must have 9 elements"
-            assert msg_type in ['A', 'E', 'D'], "msg_type must be either A, E or D"
-            assert side in ['B', 'S'], "side must be either B or S"
+            assert len(quote_list) == 9        , "quote_list must have 9 elements"
+            assert msg_type in ['A', 'E', 'D'] , "msg_type must be either A, E or D"
+            assert side in ['B', 'S']          , "side must be either B or S"
 
             # make sure that network_time, bist_time, id are positive integers
             assert quote_dict["network_time"] != "0", "network_time must be a positive integer"
@@ -103,19 +102,25 @@ class OrderEngine:
             quote_dict["qty"]          = int(quote_dict["qty"])
             quote_dict["price"]        = float(quote_dict["price"])
             quote_dict["que_loc"]      = int(quote_dict["que_loc"])
-        except AssertionError as e:
+        except Exception as e:
             raise InvalidOrder(e)
 
         order = None
         if msg_type == "A":
-            order = orderA(**quote_dict)
+            order = orderA(**quote_dict, ord_engine=self)
             self.active_orderAs[order.id] = order  # adding the order to the active_orderAs
         elif msg_type == "E":
             order = orderE(quote_dict)
-            self.process_execute_order(order)
+            try:
+                self.process_execute_order(order)
+            except Exception as e:
+                raise e                
         elif msg_type == "D":
             order = orderD(quote_dict)
-            self.process_delete_order(order)
+            try:
+                self.process_delete_order(order)
+            except Exception as e:
+                raise e
 
         # print the book (or open and closed orderA's) if debug_mode is True
         if self.debug_mode:
@@ -132,8 +137,12 @@ class OrderEngine:
         Called by process_order() when msg_type == "D"
         """
         id = orderD.id
-        orderA = self.get_order_with_id(id)
-        orderA.add_to_order_stack(orderD)
+        try:
+            orderA = self.get_order_with_id(id)
+        except Exception:
+            raise InvalidOrder("ADD order with id {} does not exist in the book".format(id))
+        orderA.process_delete_order(orderD)
+        # orderA.add_to_order_stack(orderD) already called from within orderA
         self.remove_order_from_book(orderA)
 
     def process_execute_order(self, orderE):
@@ -141,16 +150,15 @@ class OrderEngine:
         Called by process_order() when msg_type == "E"
         """
         qty_not_matched  = orderE.qty_not_matched # this will be decremented if processing as if a market order, otherwise, inserted into book as it is
+        try:
+            orderA = self.get_order_with_id(orderE.id)
+        except Exception:
+            raise InvalidOrder("ADD order with id {} does not exist in the book".format(orderE.id))
         orderA           = self.get_order_with_id(orderE.id)
         side             = orderA.side
-        key              = orderE.key
-        price            = orderA.price
 
         # orderE now has fully populated attributes from orderA
-        orderA.process_execute_order(orderE)
-        # if orderA.qty_not_executed == 0, then the order is fully executed and needs to be removed from the book
-        if orderA.qty_not_executed == 0:
-            self.remove_order_from_book(orderA)
+        orderA.process_execute_order(orderE) 
 
         # list of trades for output
         trades      = []
@@ -251,7 +259,7 @@ class OrderEngine:
         # with open(self.price_file, 'a') as f:
         #     f.write(line + "\n")
         self.price_file_stream.write(line + "\n")
-
+    
     def save_to_file(self):
         """
         Saves the both self.price_file_stream self.trades_file_stream into files with names self.price_file and self.trades_file
@@ -267,6 +275,9 @@ class OrderEngine:
             f.write(self.trades_file_stream.getvalue())
         with open(os.path.join("output", self.order_book_file), 'w') as f:
             f.write(self.output_stream.getvalue())
+        with open(os.path.join("output",self.orderA_file), 'w') as f:
+            [f.write(str(x) + "\n") for x in self.closed_orderAs]
+            # json.dump([str(x) for x in self.closed_orderAs], f)
 
     def display_open_and_closed_orders(self):
         """
@@ -293,7 +304,7 @@ class OrderEngine:
         S = ""
         last_line = self.last_line
         percent = round(last_line / self.tot_lines * 100, 2)
-        S +=  f"\n=================================================== At Line {last_line+1:>7} ({percent:>5}%) =========="
+        S += f"\n=================================================== At Line {last_line+1:>7} ({percent:>5}%) =========="
         print(f"\n=============================== At Line {last_line+1:>7} ({percent:>5}%) ==============================")
 
         S += "\n================= Asks =================\n"
@@ -313,5 +324,4 @@ class OrderEngine:
         else:
             S += "| No trades were made.                 |\n"
         S += "\n"
-
         return S
