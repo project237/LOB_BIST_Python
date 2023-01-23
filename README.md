@@ -27,3 +27,21 @@ Limit Order Book implementation and backtest engine written in Python.
 ### Data Structures Used
 - Price Queue's (class `OrderQue`) are maintained as a min-heap since each time an order on the best price list is fully matched, we are insterested in only getting the next element with the smallest `que_loc` value. Min heap was the perfect choice since it has O(1) lookup time for the min element and O(logN) for both insertion and pop (removal of the smallest element).
 - The `OrderEngine` class has two "price trees" that maintain the `OrderQue`'s sorted acc to their prices at all times. One is for bid prices and one for asks. Each of these priority queues (with prices as their keys) is maintained as a Red-Black-Tree data structure which keeps the prices sorted at each operation of removing a price (after all orders matched) or inserting a new one (for orderEs that are better than the market price, but don't have their price on the OrderTree yet). Both of these operations are O(logN) worst case time complexity. 
+
+### Concurrency
+#### When Saving the Output Files
+In main.py, we instantiate an `OrderEngine` object before executing the order engine logic with the main method, `run_with_file`. One of the keyword arguments of the constructor is `concurrent_mode`, if this is set to True, will run `OrderEngine.save_to_file_concurrent()` which, at the last steps of `run_with_file` launches a pool of seperate threads that writes the ouput data streams into 5 different output files, all at the same time, instead of writing to those files one-by-one. 
+
+After testing an input file with 10k orders in it, the version where `OrderEngine.save_to_file_concurrent()` is used, the program has resulted in an average of **99.33%** of reduction in execution time when compared to `OrderEngine.save_to_file()` which is version of the method where files are saved sequentially.
+
+Here is the table of the execution times measured.
+
+| Sample Number | Concurrent execution time (secs) | Sequential execution time (secs) |
+| ------------- | -------------------------------- | -------------------------------- |
+| 1             | 0.0085                           | 0.7532                           |
+| 2             | 0.005                            | 0.8082                           |
+| 3             | 0.0035                           | 0.8533                           |
+| 4             | 0.0052                           | 0.7638                           |
+| 5             | 0.0043                           | 0.7767                           |
+| Mean:         | 0.0053                           | 0.79104                          |
+| % Reduction:  | 99.32999595                      |

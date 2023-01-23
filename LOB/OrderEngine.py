@@ -2,7 +2,8 @@ from io             import StringIO
 from LOB.OrderTypes import orderA, orderE, orderD
 from LOB.OrderTree  import OrderTree
 import os
-import json
+import concurrent.futures
+import time
 
 class InvalidOrder(Exception):
     """
@@ -18,8 +19,9 @@ class OrderEngine(object):
     ASSUMPTIONS:
     1- Column order_id, together with bist_time uniquely identifies the orderE, thus there cannot be orderEs with the same order_id and bist_time 
     """
-    def __init__(self, debug_mode=False, price_file="market_data.csv", trades_file="trades.csv", order_book_file="LOB.txt", orderA_file="closed_orders.txt", lob_file="LOB.csv"):
+    def __init__(self, debug_mode=False, concurrent_mode=False, price_file="market_data.csv", trades_file="trades.csv", order_book_file="LOB.txt", orderA_file="closed_orders.txt", lob_file="LOB.csv"):
         self.debug_mode          = debug_mode # if True, prints the order book, closed_orderAs and active_orderAs after processing each order
+        self.concurrent_mode       = concurrent_mode # if True, all parallelized versions of the functions will be used inside run_with_file()
         self.price_file          = price_file # file name where the market info will be recorded
         self.trades_file         = trades_file # file name where the trades will be recorded
         self.order_book_file     = order_book_file # file name where the order book (as well as other output) will be recorded
@@ -46,12 +48,16 @@ class OrderEngine(object):
 
     def run_with_file(self, file_name):
         """
-        Processes the orders in the file
+        This is the top level function that is called to run the OrderEngine on the entire input order file
         """
+        # start the timer, use perf_counter() for high resolution timer
+        start = time.perf_counter()
+
         num_lines = 0
         with open(file_name, "r") as f:
             num_lines = sum(1 for line in f)
         self.tot_lines = num_lines
+
 
         with open(file_name, "r") as f:
             for i, l in enumerate(f):
@@ -76,7 +82,23 @@ class OrderEngine(object):
                     self.output_stream.write(str(self))
                     raise e
             self.output_stream.write(self.display_final())
-        self.save_to_file()
+
+        # record start of the save_to_file for timing
+        start_save = time.perf_counter() 
+        if self.concurrent_mode:
+            self.save_to_file_concurrent()
+        else:
+            self.save_to_file()
+        # stop the timer
+        end = time.perf_counter()
+
+        print("\n============================== DISPLAYING CONFIGURATIONS ==============================")
+        print("DEBUG_MODE    :", self.debug_mode)
+        print("CONCURRENT_MODE :", self.concurrent_mode)
+        print("INPUT_FILE    :", file_name)
+        # print the time it took to run the OrderEngine
+        print(f"\n========================= PROGRAM COMPLETED IN: {end-start    :0.4f} SECONDS =======================")
+        print(f"\n========================= SAVING COMPLETED IN: {end-start_save:0.4f} SECONDS =========================")
 
     def process_order(self, line):
         """
@@ -281,13 +303,72 @@ class OrderEngine(object):
             f.write(self.trades_file_stream.getvalue())
         with open(os.path.join("output", self.order_book_file), 'w') as f:
             f.write(self.output_stream.getvalue())
+        with open(os.path.join("output",self.lob_file), 'w') as f:
+            f.write(self.lob_stream.getvalue())
         with open(os.path.join("output",self.orderA_file), 'w') as f:
             [f.write(str(x) + "\n") for x in self.closed_orderAs]
             # json.dump([str(x) for x in self.closed_orderAs], f)
-        with open(os.path.join("output",self.lob_file), 'w') as f:
+
+    def write_price_file(self):
+        """
+        Writes the price filestream into the price file
+        """
+        # open self.price_file under "output" directory, and write the contents of self.price_file_stream into it
+        with open(os.path.join("output", self.price_file), 'w') as f:
+            f.write(self.price_file_stream.getvalue())
+
+    def write_trades_file(self):
+        """
+        Writes the trades filestream into the trades file
+        """
+        # same for self.trades_file
+        with open(os.path.join("output", self.trades_file), 'w') as f:
+            f.write(self.trades_file_stream.getvalue())
+    
+    def write_order_book_file(self):
+        """
+        Writes the order book filestream into the order book file
+        """
+        with open(os.path.join("output", self.order_book_file), 'w') as f:
+            f.write(self.output_stream.getvalue())
+
+    def write_lob_file(self):
+        """
+        Writes the lob filestream into the lob file
+        """
+        with open(os.path.join("output", self.lob_file), 'w') as f:
             f.write(self.lob_stream.getvalue())
 
+    def write_orderA_file(self):
+        """
+        Writes the orderA filestream into the orderA file
+        """
+        with open(os.path.join("output", self.orderA_file), 'w') as f:
+            [f.write(str(x) + "\n") for x in self.closed_orderAs]
+            # json.dump([str(x) for x in self.closed_orderAs], f)
 
+    def save_to_file_concurrent(self):
+        """
+        Parallel version of save_to_file(), uses concurrent.futures.ProcessPoolExecutor to write to files in parallel
+        """
+        # open directory "ouput" if it does not exist
+        if not os.path.exists("output"):
+            os.makedirs("output")
+        
+        # create a list of futures
+        futures = []
+        # create a ProcessPoolExecutor
+        # with concurrent.futures.ProcessPoolExecutor() as executor:
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            # submit the methods that save the filestreams to the executor, one by one
+            futures.append(executor.submit(self.write_price_file, self.price_file_stream, self.price_file))
+            futures.append(executor.submit(self.write_trades_file, self.trades_file_stream, self.trades_file))
+            futures.append(executor.submit(self.write_order_book_file, self.output_stream, self.order_book_file))
+            futures.append(executor.submit(self.write_orderA_file, self.closed_orderAs, self.orderA_file))
+            futures.append(executor.submit(self.write_lob_file, self.lob_stream, self.lob_file))
+            # wait for all futures to complete
+            concurrent.futures.wait(futures)
+    
     def display_open_and_closed_orders(self):
         """
         Prints the number of open and closed orders
