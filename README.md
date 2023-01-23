@@ -1,5 +1,5 @@
 # LOB_BIST_Python
-Limit Order Book implementation and backtest engine written in Python. 
+Limit Order Book implementation for ITCH protocal format in Python. 
 
 ## Instructions
 1. Make sure the data file is in the same directory as the main file, and its name assigned to the INPUT_FILE_NAME variable at the top of the main.py
